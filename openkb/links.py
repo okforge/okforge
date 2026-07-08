@@ -57,9 +57,9 @@ def _resolve_target(target: str, wiki_dir: Path | None) -> str | None:
                 return str(hits[0].relative_to(wiki_dir))
         return resolved
     if wiki_dir is not None:
-        hits = [sub for sub in WIKI_PAGE_DIRS if (wiki_dir / sub / f"{t}.md").exists()]
-        if len(hits) == 1:
-            return f"{hits[0]}/{t}.md"
+        dir_hits = [sub for sub in WIKI_PAGE_DIRS if (wiki_dir / sub / f"{t}.md").exists()]
+        if len(dir_hits) == 1:
+            return f"{dir_hits[0]}/{t}.md"
     return None
 
 
