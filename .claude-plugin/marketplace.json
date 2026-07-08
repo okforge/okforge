@@ -1,0 +1,29 @@
+{
+  "name": "vectify",
+  "owner": {
+    "name": "designcomputer"
+  },
+  "metadata": {
+    "description": "Skills for navigating an okforge-compiled knowledge base from agent CLIs (Claude Code, Codex, Gemini CLI).",
+    "version": "0.6.1"
+  },
+  "plugins": [
+    {
+      "name": "openkb",
+      "description": "Navigate an okforge-compiled wiki: discover documents and concepts via openkb CLI commands, read concept and summary pages directly, and follow wikilinks across the knowledge graph. Adapted from the original OpenKB skill by Ray (Vectify AI).",
+      "source": "./",
+      "strict": false,
+      "version": "0.6.1",
+      "author": {
+        "name": "designcomputer"
+      },
+      "homepage": "https://github.com/designcomputer/okforge",
+      "repository": "https://github.com/designcomputer/okforge",
+      "license": "Apache-2.0",
+      "keywords": ["knowledge-base", "wiki", "okforge", "okf", "openkb", "rag", "agent-skill"],
+      "skills": [
+        "./skills/openkb"
+      ]
+    }
+  ]
+}
