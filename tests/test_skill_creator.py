@@ -1,4 +1,4 @@
-"""Tests for openkb.skill.creator.
+"""Tests for okforge.skill.creator.
 
 The agent itself is mocked (we don't want to spend tokens in unit tests).
 What we DO test:
@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from openkb.skill.creator import (
+from okforge.skill.creator import (
     build_skill_create_agent,
     run_skill_create,
 )
@@ -27,8 +27,8 @@ def _make_kb(tmp_path):
     (tmp_path / "wiki" / "concepts").mkdir(parents=True)
     (tmp_path / "wiki" / "summaries").mkdir(parents=True)
     (tmp_path / "wiki" / "index.md").write_text("# index\n\nNo concepts yet.\n")
-    (tmp_path / ".openkb").mkdir()
-    (tmp_path / ".openkb" / "config.yaml").write_text("model: gpt-4o-mini\n")
+    (tmp_path / ".okforge").mkdir()
+    (tmp_path / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
     return tmp_path
 
 
@@ -58,7 +58,7 @@ async def test_run_skill_create_creates_output_dir(tmp_path):
 
         return SimpleNamespace(final_output="done")
 
-    with patch("openkb.skill.creator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
+    with patch("okforge.skill.creator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
         await run_skill_create(
             kb_dir=kb,
             skill_name="demo",
@@ -81,7 +81,7 @@ async def test_run_skill_create_raises_when_no_skill_md_written(tmp_path):
 
         return SimpleNamespace(final_output="done")
 
-    with patch("openkb.skill.creator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
+    with patch("okforge.skill.creator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
         with pytest.raises(RuntimeError, match="did not write SKILL.md"):
             await run_skill_create(
                 kb_dir=kb,
@@ -103,7 +103,7 @@ async def test_run_skill_create_translates_max_turns_to_runtime_error(tmp_path):
     async def fake_runner(*args, **kwargs):
         raise MaxTurnsExceeded("agent ran out of turns")
 
-    with patch("openkb.skill.creator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
+    with patch("okforge.skill.creator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
         with pytest.raises(RuntimeError, match="step cap"):
             await run_skill_create(
                 kb_dir=kb,

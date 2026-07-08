@@ -1,10 +1,10 @@
-"""Tests for the `openkb remove` feature.
+"""Tests for the `okforge remove` feature.
 
 Covers:
 - compiler helpers (`_remove_source_from_frontmatter`,
   `remove_doc_from_concept_pages`, `remove_doc_from_index`)
 - `HashRegistry.remove_by_doc_name`
-- The `openkb remove` CLI: identifier resolution, dry-run, --yes,
+- The `okforge remove` CLI: identifier resolution, dry-run, --yes,
   --keep-raw, --keep-empty-concepts, error paths, and the auto
   `lint --fix` post-pass.
 """
@@ -17,14 +17,14 @@ from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
-from openkb.agent.compiler import (
+from okforge.agent.compiler import (
     _remove_section_entry,
     _remove_source_from_frontmatter,
     remove_doc_from_concept_pages,
     remove_doc_from_index,
 )
-from openkb.cli import _resolve_doc_identifier, cli
-from openkb.state import HashRegistry
+from okforge.cli import _resolve_doc_identifier, cli
+from okforge.state import HashRegistry
 
 # ---------------------------------------------------------------------------
 # _remove_source_from_frontmatter
@@ -312,7 +312,7 @@ def test_resolve_identifier_empty(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# CLI: openkb remove
+# CLI: okforge remove
 # ---------------------------------------------------------------------------
 
 
@@ -327,7 +327,7 @@ def _seed_two_doc_kb(kb_dir: Path) -> None:
       wiki/concepts/llm.md         (sources: llm only — single-source)
       wiki/index.md with both Documents and all three Concepts entries
     """
-    (kb_dir / ".openkb" / "hashes.json").write_text(
+    (kb_dir / ".okforge" / "hashes.json").write_text(
         json.dumps(
             {
                 "h_a": {
@@ -411,7 +411,7 @@ def test_cli_remove_dry_run_does_nothing(kb_dir):
     assert (kb_dir / "wiki" / "summaries" / "attention-h_a.md").exists()
     assert (kb_dir / "wiki" / "concepts" / "transformer.md").exists()
     assert (kb_dir / "raw" / "attention.pdf").exists()
-    hashes = json.loads((kb_dir / ".openkb" / "hashes.json").read_text())
+    hashes = json.loads((kb_dir / ".okforge" / "hashes.json").read_text())
     assert "h_a" in hashes
 
 
@@ -490,7 +490,7 @@ def test_cli_remove_yes_executes_full_plan(kb_dir):
     assert not (kb_dir / "raw" / "attention.pdf").exists()
 
     # Hash registry pruned
-    hashes = json.loads((kb_dir / ".openkb" / "hashes.json").read_text())
+    hashes = json.loads((kb_dir / ".okforge" / "hashes.json").read_text())
     assert "h_a" not in hashes and "h_l" in hashes
 
     # Index updated
@@ -598,7 +598,7 @@ def _seed_legacy_kb(kb_dir: Path) -> None:
     the bare stem of the original filename — which is also what
     ``cli.py``'s ``Path(name).stem`` fallback produces on the read path.
     """
-    (kb_dir / ".openkb" / "hashes.json").write_text(
+    (kb_dir / ".okforge" / "hashes.json").write_text(
         json.dumps(
             {
                 "h_legacy": {"name": "ollama.md", "type": "md"},
@@ -633,14 +633,14 @@ def test_cli_remove_prunes_legacy_registry_entry_without_doc_name(kb_dir):
     ``remove_by_doc_name(meta.get('doc_name') or Path(name).stem)``,
     which silently no-op'd because ``meta.get('doc_name')`` is None for
     every legacy row — leaving an orphan hash entry that then re-bound
-    the next ``openkb add`` of the same file via SHA dedup.
+    the next ``okforge add`` of the same file via SHA dedup.
 
     Fix: the CLI now prunes the registry by the already-resolved
     ``file_hash`` (returned by ``_resolve_doc_identifier``), so the
     metadata shape doesn't matter.
     """
     _seed_legacy_kb(kb_dir)
-    hashes_path = kb_dir / ".openkb" / "hashes.json"
+    hashes_path = kb_dir / ".okforge" / "hashes.json"
 
     result = _invoke(kb_dir, ["remove", "ollama.md", "--yes"])
 
@@ -659,7 +659,7 @@ def test_cli_remove_prunes_legacy_registry_entry_without_doc_name(kb_dir):
 
 
 def test_cli_remove_lint_cleans_dangling_links_in_modified_page(kb_dir):
-    """`openkb remove` must auto-run a scoped lint --fix so wikilinks
+    """`okforge remove` must auto-run a scoped lint --fix so wikilinks
     pointing at the just-deleted summary get stripped from concept
     pages that this removal modified.
 
@@ -687,7 +687,7 @@ def test_cli_remove_lint_cleans_dangling_links_in_modified_page(kb_dir):
 
 
 def test_cli_remove_preserves_ghosts_in_unrelated_pages(kb_dir):
-    """Issue #58 / Bug 2 regression: `openkb remove` must NOT strip
+    """Issue #58 / Bug 2 regression: `okforge remove` must NOT strip
     pre-existing dangling wikilinks from concept pages that don't have
     the removed doc in their frontmatter sources.
 
@@ -714,23 +714,23 @@ def test_cli_remove_preserves_ghosts_in_unrelated_pages(kb_dir):
     assert "[[concepts/agent-loops]]" in surviving
     # And a hand-added link to the just-deleted summary also survives
     # because llm.md is OUT OF SCOPE for this removal's cleanup. Users
-    # who want a wiki-wide sweep can run `openkb lint --fix` explicitly.
+    # who want a wiki-wide sweep can run `okforge lint --fix` explicitly.
     assert "[[summaries/attention-h_a]]" in surviving
 
 
 # ---------------------------------------------------------------------------
 # Regression: code-review issue #1
-# `openkb add` must persist `doc_name` so `remove_by_doc_name` can prune
+# `okforge add` must persist `doc_name` so `remove_by_doc_name` can prune
 # the registry entry. Earlier add_single_file only stored `name` + `type`,
 # so the new remove flow silently no-op'd on the registry write.
 # ---------------------------------------------------------------------------
 
 
 def test_add_persists_doc_name_for_later_remove(tmp_path):
-    """End-to-end: `openkb add` writes a registry entry with `doc_name`,
-    and a subsequent `openkb remove` actually prunes that entry.
+    """End-to-end: `okforge add` writes a registry entry with `doc_name`,
+    and a subsequent `okforge remove` actually prunes that entry.
     """
-    from openkb.converter import ConvertResult
+    from okforge.converter import ConvertResult
 
     # Minimal KB scaffolding (mirrors conftest.kb_dir but localised so we
     # can fully control the add pipeline via mocks below).
@@ -745,7 +745,7 @@ def test_add_persists_doc_name_for_later_remove(tmp_path):
         encoding="utf-8",
     )
     (tmp_path / "wiki" / "log.md").write_text("# Log\n", encoding="utf-8")
-    openkb_dir = tmp_path / ".openkb"
+    openkb_dir = tmp_path / ".okforge"
     openkb_dir.mkdir()
     (openkb_dir / "config.yaml").write_text("model: gpt-4o-mini\n")
     (openkb_dir / "hashes.json").write_text("{}")
@@ -772,9 +772,9 @@ def test_add_persists_doc_name_for_later_remove(tmp_path):
     runner = CliRunner()
     # Mock convert_document + asyncio.run to skip the LLM-driven compile.
     with (
-        patch("openkb.cli._find_kb_dir", return_value=tmp_path),
-        patch("openkb.cli.convert_document", return_value=mock_result),
-        patch("openkb.cli.asyncio.run"),
+        patch("okforge.cli._find_kb_dir", return_value=tmp_path),
+        patch("okforge.cli.convert_document", return_value=mock_result),
+        patch("okforge.cli.asyncio.run"),
     ):
         add_res = runner.invoke(cli, ["add", str(doc)])
     assert add_res.exit_code == 0, add_res.output
@@ -927,7 +927,7 @@ def test_remove_doc_strips_trailing_see_also_cleanly(kb_dir):
 
 # ---------------------------------------------------------------------------
 # Functional-completeness fix: per-doc images directory cleanup
-# `openkb add` writes images into wiki/sources/images/<doc_name>/. Remove
+# `okforge add` writes images into wiki/sources/images/<doc_name>/. Remove
 # must take that whole tree with it — otherwise image-heavy docs leak
 # tens to hundreds of MB per add → remove cycle.
 # ---------------------------------------------------------------------------
@@ -973,7 +973,7 @@ def test_cli_remove_dry_run_does_not_touch_images(kb_dir):
 
 # ---------------------------------------------------------------------------
 # Functional-completeness fix: `doc_id` is persisted for long PDFs so a
-# later `openkb remove` can call PageIndex's delete_document API.
+# later `okforge remove` can call PageIndex's delete_document API.
 # ---------------------------------------------------------------------------
 
 
@@ -981,8 +981,8 @@ def test_add_long_pdf_persists_doc_id_to_registry(tmp_path):
     """Long-doc ingest must record `doc_id` in the registry. Without it,
     the remove path has no handle to feed `Collection.delete_document`.
     """
-    from openkb.converter import ConvertResult
-    from openkb.indexer import IndexResult
+    from okforge.converter import ConvertResult
+    from okforge.indexer import IndexResult
 
     # Minimal KB
     (tmp_path / "raw").mkdir()
@@ -996,7 +996,7 @@ def test_add_long_pdf_persists_doc_id_to_registry(tmp_path):
         encoding="utf-8",
     )
     (tmp_path / "wiki" / "log.md").write_text("# Log\n", encoding="utf-8")
-    openkb_dir = tmp_path / ".openkb"
+    openkb_dir = tmp_path / ".okforge"
     openkb_dir.mkdir()
     (openkb_dir / "config.yaml").write_text("model: gpt-4o-mini\n")
     (openkb_dir / "hashes.json").write_text("{}")
@@ -1020,10 +1020,10 @@ def test_add_long_pdf_persists_doc_id_to_registry(tmp_path):
 
     runner = CliRunner()
     with (
-        patch("openkb.cli._find_kb_dir", return_value=tmp_path),
-        patch("openkb.cli.convert_document", return_value=convert_mock),
-        patch("openkb.indexer.index_long_document", return_value=index_mock),
-        patch("openkb.cli.asyncio.run"),
+        patch("okforge.cli._find_kb_dir", return_value=tmp_path),
+        patch("okforge.cli.convert_document", return_value=convert_mock),
+        patch("okforge.indexer.index_long_document", return_value=index_mock),
+        patch("okforge.cli.asyncio.run"),
     ):
         result = runner.invoke(cli, ["add", str(pdf)])
 
@@ -1051,7 +1051,7 @@ def _seed_long_pdf_kb(kb_dir: Path, doc_id: str | None = "pi-doc-xyz") -> None:
     }
     if doc_id is not None:
         meta["doc_id"] = doc_id
-    (kb_dir / ".openkb" / "hashes.json").write_text(json.dumps({"h_paper": meta}))
+    (kb_dir / ".okforge" / "hashes.json").write_text(json.dumps({"h_paper": meta}))
     (kb_dir / "raw" / "paper.pdf").write_bytes(b"%PDF-fake")
     (kb_dir / "wiki" / "summaries" / "paper.md").write_text(
         "---\nsources: [raw/paper.pdf]\nbrief: x\n---\n# Paper\n",
@@ -1065,7 +1065,7 @@ def _seed_long_pdf_kb(kb_dir: Path, doc_id: str | None = "pi-doc-xyz") -> None:
     )
     (kb_dir / "wiki" / "log.md").write_text("# Log\n", encoding="utf-8")
     # Stub PageIndex state — its mere existence flips the cleanup path on.
-    (kb_dir / ".openkb" / "pageindex.db").write_bytes(b"SQLite format 3\x00")
+    (kb_dir / ".okforge" / "pageindex.db").write_bytes(b"SQLite format 3\x00")
 
 
 def test_cli_remove_calls_pageindex_delete_with_stored_doc_id(kb_dir):
@@ -1081,15 +1081,15 @@ def test_cli_remove_calls_pageindex_delete_with_stored_doc_id(kb_dir):
 
     with (
         patch("pageindex.PageIndexClient", return_value=fake_client) as mock_cls,
-        patch("openkb.cli._setup_llm_key"),
+        patch("okforge.cli._setup_llm_key"),
     ):
         result = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
 
     assert result.exit_code == 0, result.output
     mock_cls.assert_called_once()
-    # Storage path must point at the KB's .openkb directory.
+    # Storage path must point at the KB's .okforge directory.
     _, kwargs = mock_cls.call_args
-    assert kwargs.get("storage_path") == str(kb_dir / ".openkb")
+    assert kwargs.get("storage_path") == str(kb_dir / ".okforge")
     fake_col.delete_document.assert_called_once_with("pi-doc-xyz")
     fake_col.list_documents.assert_not_called()  # No fallback needed
     assert "PageIndex" in result.output
@@ -1112,7 +1112,7 @@ def test_cli_remove_pageindex_fallback_lookup_by_doc_name(kb_dir):
 
     with (
         patch("pageindex.PageIndexClient", return_value=fake_client),
-        patch("openkb.cli._setup_llm_key"),
+        patch("okforge.cli._setup_llm_key"),
     ):
         result = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
 
@@ -1138,7 +1138,7 @@ def test_cli_remove_pageindex_fallback_skips_on_ambiguous_match(kb_dir):
 
     with (
         patch("pageindex.PageIndexClient", return_value=fake_client),
-        patch("openkb.cli._setup_llm_key"),
+        patch("okforge.cli._setup_llm_key"),
     ):
         result = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
 
@@ -1150,12 +1150,12 @@ def test_cli_remove_pageindex_fallback_skips_on_ambiguous_match(kb_dir):
 
 
 def test_cli_remove_skips_pageindex_when_no_state_file(kb_dir):
-    """Short-doc-only KBs never created `.openkb/pageindex.db`. The
+    """Short-doc-only KBs never created `.okforge/pageindex.db`. The
     remove flow must not import or instantiate PageIndexClient in that
     case — opening it would unnecessarily require an LLM key.
     """
     _seed_two_doc_kb(kb_dir)
-    assert not (kb_dir / ".openkb" / "pageindex.db").exists()
+    assert not (kb_dir / ".okforge" / "pageindex.db").exists()
 
     with patch("pageindex.PageIndexClient") as mock_cls:
         result = _invoke(kb_dir, ["remove", "attention.pdf", "--yes"])
@@ -1169,13 +1169,13 @@ def test_cli_remove_skips_pageindex_when_no_state_file(kb_dir):
 # Consistency-fix regression: PageIndex failure must NOT clear the registry,
 # so the user can retry. The previous order removed the registry entry first
 # and then attempted PageIndex cleanup — leaving an orphan SQLite row that
-# silently re-bound on the next `openkb add` via PageIndex's SHA-256 dedup.
+# silently re-bound on the next `okforge add` via PageIndex's SHA-256 dedup.
 # ---------------------------------------------------------------------------
 
 
 def test_cli_remove_pageindex_failure_preserves_registry_for_retry(kb_dir):
     """When `_cleanup_pageindex` raises, the registry entry (and its
-    `doc_id`) must survive so a subsequent `openkb remove` invocation
+    `doc_id`) must survive so a subsequent `okforge remove` invocation
     has the handle needed to retry. Wiki-side cleanup still happens
     because every step is idempotent across retries.
     """
@@ -1186,7 +1186,7 @@ def test_cli_remove_pageindex_failure_preserves_registry_for_retry(kb_dir):
 
     with (
         patch("pageindex.PageIndexClient", return_value=fake_client),
-        patch("openkb.cli._setup_llm_key"),
+        patch("okforge.cli._setup_llm_key"),
     ):
         result = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
 
@@ -1197,7 +1197,7 @@ def test_cli_remove_pageindex_failure_preserves_registry_for_retry(kb_dir):
     assert "re-run" in result.output
 
     # Registry entry is intact for retry.
-    hashes = json.loads((kb_dir / ".openkb" / "hashes.json").read_text())
+    hashes = json.loads((kb_dir / ".okforge" / "hashes.json").read_text())
     assert "h_paper" in hashes
     assert hashes["h_paper"]["doc_id"] == "pi-doc-xyz"
 
@@ -1218,13 +1218,13 @@ def test_cli_remove_retry_after_pageindex_failure_completes(kb_dir):
     failing_client.collection.side_effect = RuntimeError("transient")
     with (
         patch("pageindex.PageIndexClient", return_value=failing_client),
-        patch("openkb.cli._setup_llm_key"),
+        patch("okforge.cli._setup_llm_key"),
     ):
         first = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
     assert first.exit_code == 0
     assert "[WARN]" in first.output
     # Registry entry survived for retry.
-    assert "h_paper" in json.loads((kb_dir / ".openkb" / "hashes.json").read_text())
+    assert "h_paper" in json.loads((kb_dir / ".okforge" / "hashes.json").read_text())
 
     # Second attempt: PageIndex succeeds. Same doc_id must drive the
     # delete since it's still in the registry.
@@ -1233,7 +1233,7 @@ def test_cli_remove_retry_after_pageindex_failure_completes(kb_dir):
     working_client.collection.return_value = working_col
     with (
         patch("pageindex.PageIndexClient", return_value=working_client),
-        patch("openkb.cli._setup_llm_key"),
+        patch("okforge.cli._setup_llm_key"),
     ):
         second = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
 
@@ -1241,7 +1241,7 @@ def test_cli_remove_retry_after_pageindex_failure_completes(kb_dir):
     working_col.delete_document.assert_called_once_with("pi-doc-xyz")
 
     # Registry now empty; wiki cleanup remains complete.
-    assert json.loads((kb_dir / ".openkb" / "hashes.json").read_text()) == {}
+    assert json.loads((kb_dir / ".okforge" / "hashes.json").read_text()) == {}
     assert not (kb_dir / "wiki" / "summaries" / "paper.md").exists()
 
 
@@ -1258,7 +1258,7 @@ def test_cli_remove_deletes_renamed_raw_copy(kb_dir):
     raw_file = kb_dir / "raw" / "report-aabbccdd.md"
     raw_file.write_text("# R", encoding="utf-8")
     (kb_dir / "wiki" / "sources" / "report-aabbccdd.md").write_text("# R", encoding="utf-8")
-    HashRegistry(kb_dir / ".openkb" / "hashes.json").add(
+    HashRegistry(kb_dir / ".okforge" / "hashes.json").add(
         "h-collide",
         {
             "name": "report.md",
@@ -1290,14 +1290,14 @@ def test_remove_cloud_doc_never_touches_pageindex(tmp_path):
 
     from click.testing import CliRunner
 
-    from openkb.cli import cli
-    from openkb.state import HashRegistry
+    from okforge.cli import cli
+    from okforge.state import HashRegistry
 
     # Minimal KB
     (tmp_path / "raw").mkdir()
     for sub in ("sources/images", "summaries", "concepts", "entities", "reports"):
         (tmp_path / "wiki" / sub).mkdir(parents=True)
-    openkb_dir = tmp_path / ".openkb"
+    openkb_dir = tmp_path / ".okforge"
     openkb_dir.mkdir()
     (openkb_dir / "config.yaml").write_text("model: gpt-4o-mini\n")
     # A stray pageindex.db to prove the cloud path is gated by type, not just
@@ -1324,7 +1324,7 @@ def test_remove_cloud_doc_never_touches_pageindex(tmp_path):
 
     runner = CliRunner()
     with (
-        patch("openkb.cli._find_kb_dir", return_value=tmp_path),
+        patch("okforge.cli._find_kb_dir", return_value=tmp_path),
         patch("pageindex.PageIndexClient") as mock_client,
     ):
         result = runner.invoke(cli, ["remove", "cloud-doc", "--yes"])

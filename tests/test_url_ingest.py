@@ -1,11 +1,11 @@
-"""Tests for `openkb.url_ingest` — the URL → raw/ input-acquisition layer."""
+"""Tests for `okforge.url_ingest` — the URL → raw/ input-acquisition layer."""
 
 from __future__ import annotations
 
 import io
 from unittest.mock import MagicMock, patch
 
-from openkb.url_ingest import (
+from okforge.url_ingest import (
     _parse_content_disposition_filename,
     _pdf_filename,
     _sanitize_filename,
@@ -479,13 +479,13 @@ def test_add_single_file_returns_added_on_success(tmp_path):
     """Tri-state return contract: ``"added"`` when the file was newly
     indexed. URL-ingest uses this to decide whether to keep / unlink
     the just-downloaded file."""
-    from openkb.cli import add_single_file
-    from openkb.converter import ConvertResult
+    from okforge.cli import add_single_file
+    from okforge.converter import ConvertResult
 
     # Build a minimal KB scaffold
-    (tmp_path / ".openkb").mkdir()
-    (tmp_path / ".openkb" / "config.yaml").write_text("model: gpt-4o-mini\n")
-    (tmp_path / ".openkb" / "hashes.json").write_text("{}")
+    (tmp_path / ".okforge").mkdir()
+    (tmp_path / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
+    (tmp_path / ".okforge" / "hashes.json").write_text("{}")
     (tmp_path / "raw").mkdir()
     (tmp_path / "wiki" / "summaries").mkdir(parents=True)
     (tmp_path / "wiki" / "sources").mkdir(parents=True)
@@ -508,8 +508,8 @@ def test_add_single_file_returns_added_on_success(tmp_path):
         return None
 
     with (
-        patch("openkb.cli.convert_document", return_value=mock_result),
-        patch("openkb.agent.compiler.compile_short_doc", new=compile_noop),
+        patch("okforge.cli.convert_document", return_value=mock_result),
+        patch("okforge.agent.compiler.compile_short_doc", new=compile_noop),
     ):
         outcome = add_single_file(doc, tmp_path)
 
@@ -517,18 +517,18 @@ def test_add_single_file_returns_added_on_success(tmp_path):
 
 
 def test_add_single_file_returns_skipped_on_dedup(tmp_path):
-    from openkb.cli import add_single_file
-    from openkb.converter import ConvertResult
+    from okforge.cli import add_single_file
+    from okforge.converter import ConvertResult
 
-    (tmp_path / ".openkb").mkdir()
-    (tmp_path / ".openkb" / "config.yaml").write_text("model: gpt-4o-mini\n")
-    (tmp_path / ".openkb" / "hashes.json").write_text("{}")
+    (tmp_path / ".okforge").mkdir()
+    (tmp_path / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
+    (tmp_path / ".okforge" / "hashes.json").write_text("{}")
     (tmp_path / "raw").mkdir()
     doc = tmp_path / "raw" / "x.md"
     doc.write_text("# Hello")
 
     skipped = ConvertResult(skipped=True)
-    with patch("openkb.cli.convert_document", return_value=skipped):
+    with patch("okforge.cli.convert_document", return_value=skipped):
         outcome = add_single_file(doc, tmp_path)
 
     assert outcome == "skipped"
@@ -538,12 +538,12 @@ def test_add_single_file_returns_failed_on_pipeline_error(tmp_path):
     """A pipeline failure (e.g. transient LLM error during compilation)
     must be distinguishable from dedup-skip, so URL-ingest can preserve
     the raw file for retry instead of deleting it."""
-    from openkb.cli import add_single_file
-    from openkb.converter import ConvertResult
+    from okforge.cli import add_single_file
+    from okforge.converter import ConvertResult
 
-    (tmp_path / ".openkb").mkdir()
-    (tmp_path / ".openkb" / "config.yaml").write_text("model: gpt-4o-mini\n")
-    (tmp_path / ".openkb" / "hashes.json").write_text("{}")
+    (tmp_path / ".okforge").mkdir()
+    (tmp_path / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
+    (tmp_path / ".okforge" / "hashes.json").write_text("{}")
     (tmp_path / "raw").mkdir()
     (tmp_path / "wiki" / "summaries").mkdir(parents=True)
     (tmp_path / "wiki" / "sources").mkdir(parents=True)
@@ -566,9 +566,9 @@ def test_add_single_file_returns_failed_on_pipeline_error(tmp_path):
 
     # Make both compile attempts raise to drive the failure path.
     with (
-        patch("openkb.cli.convert_document", return_value=mock_result),
-        patch("openkb.agent.compiler.compile_short_doc", new=fail_compile),
-        patch("openkb.cli.time.sleep"),
+        patch("okforge.cli.convert_document", return_value=mock_result),
+        patch("okforge.agent.compiler.compile_short_doc", new=fail_compile),
+        patch("okforge.cli.time.sleep"),
     ):
         outcome = add_single_file(doc, tmp_path)
 
@@ -581,13 +581,13 @@ def test_url_ingest_cleans_up_orphan_on_dedup_skip(tmp_path, monkeypatch):
     so the user doesn't accumulate untracked duplicates."""
     from click.testing import CliRunner
 
-    from openkb.cli import cli
-    from openkb.converter import ConvertResult
+    from okforge.cli import cli
+    from okforge.converter import ConvertResult
 
     # Minimal KB
-    (tmp_path / ".openkb").mkdir()
-    (tmp_path / ".openkb" / "config.yaml").write_text("model: gpt-4o-mini\n")
-    (tmp_path / ".openkb" / "hashes.json").write_text("{}")
+    (tmp_path / ".okforge").mkdir()
+    (tmp_path / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
+    (tmp_path / ".okforge" / "hashes.json").write_text("{}")
     (tmp_path / "raw").mkdir()
 
     # Fake the URL fetch — write directly to where url_ingest would
@@ -598,9 +598,9 @@ def test_url_ingest_cleans_up_orphan_on_dedup_skip(tmp_path, monkeypatch):
     # fetch_url_to_raw is lazy-imported inside `add`, so patch it at the
     # source module — that's where the `from ... import` resolves.
     with (
-        patch("openkb.cli._find_kb_dir", return_value=tmp_path),
-        patch("openkb.url_ingest.fetch_url_to_raw", return_value=fetched_path),
-        patch("openkb.cli.convert_document", return_value=ConvertResult(skipped=True)),
+        patch("okforge.cli._find_kb_dir", return_value=tmp_path),
+        patch("okforge.url_ingest.fetch_url_to_raw", return_value=fetched_path),
+        patch("okforge.cli.convert_document", return_value=ConvertResult(skipped=True)),
     ):
         result = runner.invoke(cli, ["add", "https://example.com/paper.pdf"])
 
@@ -619,11 +619,11 @@ def test_url_ingest_uses_staged_add_for_crash_safe_conversion(tmp_path):
     """
     from click.testing import CliRunner
 
-    from openkb.cli import cli
+    from okforge.cli import cli
 
-    (tmp_path / ".openkb").mkdir()
-    (tmp_path / ".openkb" / "config.yaml").write_text("model: gpt-4o-mini\n")
-    (tmp_path / ".openkb" / "hashes.json").write_text("{}")
+    (tmp_path / ".okforge").mkdir()
+    (tmp_path / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
+    (tmp_path / ".okforge" / "hashes.json").write_text("{}")
     (tmp_path / "raw").mkdir()
 
     fetched_path = tmp_path / "raw" / "paper.md"
@@ -631,9 +631,9 @@ def test_url_ingest_uses_staged_add_for_crash_safe_conversion(tmp_path):
 
     runner = CliRunner()
     with (
-        patch("openkb.cli._find_kb_dir", return_value=tmp_path),
-        patch("openkb.url_ingest.fetch_url_to_raw", return_value=fetched_path),
-        patch("openkb.cli.add_single_file", return_value="added") as mock_add,
+        patch("okforge.cli._find_kb_dir", return_value=tmp_path),
+        patch("okforge.url_ingest.fetch_url_to_raw", return_value=fetched_path),
+        patch("okforge.cli.add_single_file", return_value="added") as mock_add,
     ):
         result = runner.invoke(cli, ["add", "https://example.com/paper"])
 
@@ -648,12 +648,12 @@ def test_url_ingest_keeps_raw_file_on_pipeline_failure(tmp_path):
     when indexing has already succeeded but compilation hasn't."""
     from click.testing import CliRunner
 
-    from openkb.cli import cli
-    from openkb.converter import ConvertResult
+    from okforge.cli import cli
+    from okforge.converter import ConvertResult
 
-    (tmp_path / ".openkb").mkdir()
-    (tmp_path / ".openkb" / "config.yaml").write_text("model: gpt-4o-mini\n")
-    (tmp_path / ".openkb" / "hashes.json").write_text("{}")
+    (tmp_path / ".okforge").mkdir()
+    (tmp_path / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
+    (tmp_path / ".okforge" / "hashes.json").write_text("{}")
     (tmp_path / "raw").mkdir()
     (tmp_path / "wiki" / "summaries").mkdir(parents=True)
     (tmp_path / "wiki" / "sources").mkdir(parents=True)
@@ -676,11 +676,11 @@ def test_url_ingest_keeps_raw_file_on_pipeline_failure(tmp_path):
 
     runner = CliRunner()
     with (
-        patch("openkb.cli._find_kb_dir", return_value=tmp_path),
-        patch("openkb.url_ingest.fetch_url_to_raw", return_value=fetched_path),
-        patch("openkb.cli.convert_document", return_value=mock_result),
-        patch("openkb.agent.compiler.compile_short_doc", new=fail_compile),
-        patch("openkb.cli.time.sleep"),
+        patch("okforge.cli._find_kb_dir", return_value=tmp_path),
+        patch("okforge.url_ingest.fetch_url_to_raw", return_value=fetched_path),
+        patch("okforge.cli.convert_document", return_value=mock_result),
+        patch("okforge.agent.compiler.compile_short_doc", new=fail_compile),
+        patch("okforge.cli.time.sleep"),
     ):
         result = runner.invoke(cli, ["add", "https://example.com/paper.pdf"])
 
@@ -699,11 +699,11 @@ def test_url_ingest_pipeline_failure_rolls_back_converted_source_but_keeps_downl
     """
     from click.testing import CliRunner
 
-    from openkb.cli import cli
+    from okforge.cli import cli
 
-    (tmp_path / ".openkb").mkdir()
-    (tmp_path / ".openkb" / "config.yaml").write_text("model: gpt-4o-mini\n")
-    (tmp_path / ".openkb" / "hashes.json").write_text("{}")
+    (tmp_path / ".okforge").mkdir()
+    (tmp_path / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
+    (tmp_path / ".okforge" / "hashes.json").write_text("{}")
     (tmp_path / "raw").mkdir()
     (tmp_path / "wiki" / "summaries").mkdir(parents=True)
     (tmp_path / "wiki" / "sources").mkdir(parents=True)
@@ -718,11 +718,11 @@ def test_url_ingest_pipeline_failure_rolls_back_converted_source_but_keeps_downl
 
     runner = CliRunner()
     with (
-        patch("openkb.cli._find_kb_dir", return_value=tmp_path),
-        patch("openkb.url_ingest.fetch_url_to_raw", return_value=fetched_path),
-        patch("openkb.agent.compiler.compile_short_doc", new=fail_compile),
-        patch("openkb.cli.time.sleep"),
-        patch("openkb.cli._setup_llm_key"),
+        patch("okforge.cli._find_kb_dir", return_value=tmp_path),
+        patch("okforge.url_ingest.fetch_url_to_raw", return_value=fetched_path),
+        patch("okforge.agent.compiler.compile_short_doc", new=fail_compile),
+        patch("okforge.cli.time.sleep"),
+        patch("okforge.cli._setup_llm_key"),
     ):
         result = runner.invoke(cli, ["add", "https://example.com/paper"])
 

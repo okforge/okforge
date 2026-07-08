@@ -58,7 +58,7 @@ direction and a slide grammar. Two ship with okforge (no install needed):
 | [`openkb-deck-neon`](../../skills/openkb-deck-neon/SKILL.md) *(default)* | Dark "Aurora Glass" — near-black background, teal/sky/magenta/amber neon, glassmorphism panels. |
 | [`openkb-deck-editorial`](../../skills/openkb-deck-editorial/SKILL.md) | Warm "Editorial Monocle" — cream, serif, brick-red accent; a printed-page feel. |
 
-Want a custom look? Drop a third-party deck skill into `~/.openkb/skills/` or
+Want a custom look? Drop a third-party deck skill into `~/.config/okforge/skills/` or
 `<kb>/skills/` and select it with `--skill` (a same-named skill there overrides
 the built-in).
 

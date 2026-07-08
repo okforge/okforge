@@ -1,7 +1,7 @@
 """Sanity tests for the built-in deck-editorial skill.
 
 After the skill-system refactor the deck prompt moved from
-``openkb/prompts/deck_create.md`` (a ``str.format``-style template) to
+``okforge/prompts/deck_create.md`` (a ``str.format``-style template) to
 ``skills/openkb-deck-editorial/SKILL.md`` (a standalone Anthropic-style
 skill with YAML frontmatter that ``run_skill`` loads directly). These
 tests pin the structural anchors the validator and generator depend on.
@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from openkb.agent.skills import _parse_frontmatter
+from okforge.agent.skills import _parse_frontmatter
 
 SKILL_MD = Path(__file__).resolve().parent.parent / "skills" / "openkb-deck-editorial" / "SKILL.md"
 

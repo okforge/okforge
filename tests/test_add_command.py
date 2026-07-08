@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
-from openkb.cli import SUPPORTED_EXTENSIONS, _find_kb_dir, cli
+from okforge.cli import SUPPORTED_EXTENSIONS, _find_kb_dir, cli
 
 
 class TestSupportedExtensions:
@@ -31,14 +31,14 @@ class TestSupportedExtensions:
 
 class TestFindKbDir:
     def test_finds_openkb_dir(self, tmp_path, monkeypatch):
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".okforge").mkdir()
         monkeypatch.chdir(tmp_path)
         result = _find_kb_dir()
         assert result is not None
 
     def test_returns_none_if_no_openkb(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        with patch("openkb.cli.load_global_config", return_value={}):
+        with patch("okforge.cli.load_global_config", return_value={}):
             result = _find_kb_dir()
             assert result is None
 
@@ -51,7 +51,7 @@ class TestAddCommand:
         (tmp_path / "wiki" / "summaries").mkdir(parents=True)
         (tmp_path / "wiki" / "concepts").mkdir(parents=True)
         (tmp_path / "wiki" / "reports").mkdir(parents=True)
-        openkb_dir = tmp_path / ".openkb"
+        openkb_dir = tmp_path / ".okforge"
         openkb_dir.mkdir()
         (openkb_dir / "config.yaml").write_text("model: gpt-4o-mini\n")
         (openkb_dir / "hashes.json").write_text(json.dumps({}))
@@ -61,7 +61,7 @@ class TestAddCommand:
         runner = CliRunner()
         with (
             runner.isolated_filesystem(temp_dir=tmp_path),
-            patch("openkb.cli._find_kb_dir", return_value=None),
+            patch("okforge.cli._find_kb_dir", return_value=None),
         ):
             result = runner.invoke(cli, ["add", "somefile.pdf"])
             assert "No knowledge base found" in result.output
@@ -73,34 +73,34 @@ class TestAddCommand:
 
         runner = CliRunner()
         with (
-            patch("openkb.cli.add_single_file") as mock_add,
-            patch("openkb.cli._find_kb_dir", return_value=kb_dir),
+            patch("okforge.cli.add_single_file") as mock_add,
+            patch("okforge.cli._find_kb_dir", return_value=kb_dir),
         ):
             runner.invoke(cli, ["add", str(doc)])
             mock_add.assert_called_once_with(doc, kb_dir)
 
     def test_add_single_file_compile_failure_rolls_back_converted_artifacts(self, tmp_path):
-        from openkb.cli import add_single_file
-        from openkb.state import HashRegistry
+        from okforge.cli import add_single_file
+        from okforge.state import HashRegistry
 
         kb_dir = self._setup_kb(tmp_path)
         doc = tmp_path / "notes.md"
         doc.write_text("# Notes\n\nBody", encoding="utf-8")
 
         with (
-            patch("openkb.agent.compiler.compile_short_doc", side_effect=RuntimeError("boom")),
-            patch("openkb.cli.time.sleep"),
-            patch("openkb.cli._setup_llm_key"),
+            patch("okforge.agent.compiler.compile_short_doc", side_effect=RuntimeError("boom")),
+            patch("okforge.cli.time.sleep"),
+            patch("okforge.cli._setup_llm_key"),
         ):
             outcome = add_single_file(doc, kb_dir)
 
         assert outcome == "failed"
         assert not (kb_dir / "raw" / "notes.md").exists()
         assert not (kb_dir / "wiki" / "sources" / "notes.md").exists()
-        assert HashRegistry(kb_dir / ".openkb" / "hashes.json").all_entries() == {}
+        assert HashRegistry(kb_dir / ".okforge" / "hashes.json").all_entries() == {}
 
     def _long_doc_conv(self, kb_dir, name, file_hash):
-        from openkb.converter import ConvertResult
+        from okforge.converter import ConvertResult
 
         return ConvertResult(
             raw_path=kb_dir / "raw" / f"{name}.pdf",
@@ -112,13 +112,13 @@ class TestAddCommand:
 
     def test_long_doc_rollback_removes_only_the_new_blob(self, tmp_path):
         """A failed long-doc add must roll back the blob IT created under
-        .openkb/files, while a pre-existing blob (another document) survives —
+        .okforge/files, while a pre-existing blob (another document) survives —
         the targeted track_new must not touch blobs this add didn't create."""
-        from openkb.cli import add_single_file
-        from openkb.indexer import IndexResult
+        from okforge.cli import add_single_file
+        from okforge.indexer import IndexResult
 
         kb_dir = self._setup_kb(tmp_path)
-        files = kb_dir / ".openkb" / "files" / "default"
+        files = kb_dir / ".okforge" / "files" / "default"
         files.mkdir(parents=True)
         other = files / "other-doc.pdf"
         other.write_bytes(b"another-doc-keep-me")
@@ -136,11 +136,11 @@ class TestAddCommand:
         conv = self._long_doc_conv(kb_dir, "paper", "cafebabe00" * 8)
 
         with (
-            patch("openkb.cli.convert_document", return_value=conv),
-            patch("openkb.indexer.index_long_document", side_effect=fake_index),
-            patch("openkb.agent.compiler.compile_long_doc", side_effect=RuntimeError("boom")),
-            patch("openkb.cli.time.sleep"),
-            patch("openkb.cli._setup_llm_key"),
+            patch("okforge.cli.convert_document", return_value=conv),
+            patch("okforge.indexer.index_long_document", side_effect=fake_index),
+            patch("okforge.agent.compiler.compile_long_doc", side_effect=RuntimeError("boom")),
+            patch("okforge.cli.time.sleep"),
+            patch("okforge.cli._setup_llm_key"),
         ):
             outcome = add_single_file(doc, kb_dir)
 
@@ -154,11 +154,11 @@ class TestAddCommand:
         blob (diverged hashes.json/pageindex.db). A failed add must NOT delete
         that pre-existing blob on rollback (regression: track_new globbing the
         doc_id would otherwise register and delete it)."""
-        from openkb.cli import add_single_file
-        from openkb.indexer import IndexResult
+        from okforge.cli import add_single_file
+        from okforge.indexer import IndexResult
 
         kb_dir = self._setup_kb(tmp_path)
-        files = kb_dir / ".openkb" / "files" / "default"
+        files = kb_dir / ".okforge" / "files" / "default"
         files.mkdir(parents=True)
         existing_id = "22222222-2222-2222-2222-222222222222"
         existing_blob = files / f"{existing_id}.pdf"
@@ -173,11 +173,11 @@ class TestAddCommand:
         conv = self._long_doc_conv(kb_dir, "dup", "feedface00" * 8)
 
         with (
-            patch("openkb.cli.convert_document", return_value=conv),
-            patch("openkb.indexer.index_long_document", side_effect=fake_index_dedup),
-            patch("openkb.agent.compiler.compile_long_doc", side_effect=RuntimeError("boom")),
-            patch("openkb.cli.time.sleep"),
-            patch("openkb.cli._setup_llm_key"),
+            patch("okforge.cli.convert_document", return_value=conv),
+            patch("okforge.indexer.index_long_document", side_effect=fake_index_dedup),
+            patch("okforge.agent.compiler.compile_long_doc", side_effect=RuntimeError("boom")),
+            patch("okforge.cli.time.sleep"),
+            patch("okforge.cli._setup_llm_key"),
         ):
             outcome = add_single_file(doc, kb_dir)
 
@@ -194,8 +194,8 @@ class TestAddCommand:
 
         runner = CliRunner()
         with (
-            patch("openkb.cli.add_single_file") as mock_add,
-            patch("openkb.cli._find_kb_dir", return_value=kb_dir),
+            patch("okforge.cli.add_single_file") as mock_add,
+            patch("okforge.cli._find_kb_dir", return_value=kb_dir),
         ):
             runner.invoke(cli, ["add", str(docs_dir)])
             # Should be called for .md and .txt but not .xyz
@@ -211,7 +211,7 @@ class TestAddCommand:
         doc.write_text("content")
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["add", str(doc)])
             assert "Unsupported file type" in result.output
 
@@ -219,7 +219,7 @@ class TestAddCommand:
         kb_dir = self._setup_kb(tmp_path)
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["add", str(tmp_path / "nonexistent.pdf")])
             assert "does not exist" in result.output
 
@@ -228,15 +228,15 @@ class TestAddCommand:
         doc = tmp_path / "test.md"
         doc.write_text("# Hello")
 
-        from openkb.converter import ConvertResult
+        from okforge.converter import ConvertResult
 
         mock_result = ConvertResult(skipped=True)
 
         runner = CliRunner()
         with (
-            patch("openkb.cli._find_kb_dir", return_value=kb_dir),
-            patch("openkb.cli.convert_document", return_value=mock_result),
-            patch("openkb.cli.asyncio.run") as mock_arun,
+            patch("okforge.cli._find_kb_dir", return_value=kb_dir),
+            patch("okforge.cli.convert_document", return_value=mock_result),
+            patch("okforge.cli.asyncio.run") as mock_arun,
         ):
             result = runner.invoke(cli, ["add", str(doc)])
             assert "SKIP" in result.output
@@ -250,7 +250,7 @@ class TestAddCommand:
         source_path = kb_dir / "wiki" / "sources" / "test.md"
         source_path.write_text("# Hello converted")
 
-        from openkb.converter import ConvertResult
+        from okforge.converter import ConvertResult
 
         mock_result = ConvertResult(
             raw_path=kb_dir / "raw" / "test.md",
@@ -262,9 +262,9 @@ class TestAddCommand:
 
         # An edited doc arrives with a new content hash; the stale entry
         # for the same doc_name must be replaced, leaving exactly ONE entry.
-        from openkb.state import HashRegistry
+        from okforge.state import HashRegistry
 
-        HashRegistry(kb_dir / ".openkb" / "hashes.json").add(
+        HashRegistry(kb_dir / ".okforge" / "hashes.json").add(
             "stale-old-hash", {"name": "test.md", "doc_name": "test", "type": "md"}
         )
 
@@ -275,9 +275,9 @@ class TestAddCommand:
 
         runner = CliRunner()
         with (
-            patch("openkb.cli._find_kb_dir", return_value=kb_dir),
-            patch("openkb.cli.convert_document", return_value=mock_result),
-            patch("openkb.agent.compiler.compile_short_doc", new=compile_noop),
+            patch("okforge.cli._find_kb_dir", return_value=kb_dir),
+            patch("okforge.cli.convert_document", return_value=mock_result),
+            patch("okforge.agent.compiler.compile_short_doc", new=compile_noop),
         ):
             result = runner.invoke(cli, ["add", str(doc)])
             assert len(compile_calls) == 1
@@ -285,7 +285,7 @@ class TestAddCommand:
 
         import json as json_mod
 
-        hashes = json_mod.loads((kb_dir / ".openkb" / "hashes.json").read_text(encoding="utf-8"))
+        hashes = json_mod.loads((kb_dir / ".okforge" / "hashes.json").read_text(encoding="utf-8"))
         meta = hashes[mock_result.file_hash]
         assert meta["doc_name"] == "test"
         assert meta["raw_path"] == "raw/test.md"
@@ -303,11 +303,11 @@ class TestAddCommand:
         """
         import json as json_mod
 
-        from openkb.state import HashRegistry
+        from okforge.state import HashRegistry
 
         kb_dir = self._setup_kb(tmp_path)
         # oldest-generation entry: name only, no doc_name, no path
-        HashRegistry(kb_dir / ".openkb" / "hashes.json").add(
+        HashRegistry(kb_dir / ".okforge" / "hashes.json").add(
             "old-hash", {"name": "notes.md", "type": "md"}
         )
         doc = tmp_path / "notes.md"
@@ -321,13 +321,13 @@ class TestAddCommand:
 
         runner = CliRunner()
         with (
-            patch("openkb.cli._find_kb_dir", return_value=kb_dir),
-            patch("openkb.cli.asyncio.run", side_effect=close_coro),
+            patch("okforge.cli._find_kb_dir", return_value=kb_dir),
+            patch("okforge.cli.asyncio.run", side_effect=close_coro),
         ):
             result = runner.invoke(cli, ["add", str(doc)])
             assert "OK" in result.output
 
-        hashes = json_mod.loads((kb_dir / ".openkb" / "hashes.json").read_text(encoding="utf-8"))
+        hashes = json_mod.loads((kb_dir / ".okforge" / "hashes.json").read_text(encoding="utf-8"))
         assert "old-hash" not in hashes  # stale entry replaced…
         new_entries = [m for m in hashes.values() if m.get("doc_name") == "notes"]
         assert len(new_entries) == 1  # …exactly one entry survives

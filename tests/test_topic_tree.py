@@ -1,7 +1,7 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from openkb import topic_tree as tt
+from okforge import topic_tree as tt
 
 
 def _concept(d: Path, stem: str, brief: str):
@@ -131,7 +131,7 @@ def test_bootstrap_recurses_until_under_fanout(tmp_path):
 
 
 def test_make_choose_parses_pick(tmp_path):
-    from openkb import topic_tree_llm as ttl
+    from okforge import topic_tree_llm as ttl
 
     root = tmp_path / "concepts"
     tt.write_topic_md(root, "root", 0)

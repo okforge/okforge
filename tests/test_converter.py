@@ -1,10 +1,10 @@
-"""Tests for openkb.converter."""
+"""Tests for okforge.converter."""
 
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from openkb.converter import convert_document, get_pdf_page_count
+from okforge.converter import convert_document, get_pdf_page_count
 
 # ---------------------------------------------------------------------------
 # get_pdf_page_count
@@ -18,7 +18,7 @@ class TestGetPdfPageCount:
         fake_doc.page_count = 5
         fake_doc.__enter__ = MagicMock(return_value=fake_doc)
         fake_doc.__exit__ = MagicMock(return_value=False)
-        with patch("openkb.converter.pymupdf.open", return_value=fake_doc):
+        with patch("okforge.converter.pymupdf.open", return_value=fake_doc):
             count = get_pdf_page_count(tmp_path / "fake.pdf")
         assert count == 5
 
@@ -47,14 +47,14 @@ class TestConvertDocumentMarkdown:
 
     def test_md_duplicate_skipped(self, kb_dir):
         """Second call with same file returns skipped=True when hash is registered."""
-        from openkb.state import HashRegistry
+        from okforge.state import HashRegistry
 
         src = kb_dir / "raw" / "notes.md"
         src.write_text("# Notes\n\nSome content here.", encoding="utf-8")
 
         result1 = convert_document(src, kb_dir)  # first call
         # Simulate CLI registering the hash after successful compilation
-        registry = HashRegistry(kb_dir / ".openkb" / "hashes.json")
+        registry = HashRegistry(kb_dir / ".okforge" / "hashes.json")
         registry.add(result1.file_hash, {"name": src.name, "type": "md"})
 
         result2 = convert_document(src, kb_dir)  # second call
@@ -115,9 +115,10 @@ class TestConvertDocumentPdfShort:
         src.write_bytes(b"%PDF-1.4 fake content")
 
         with (
-            patch("openkb.converter.pymupdf.open") as mock_mu,
+            patch("okforge.converter.pymupdf.open") as mock_mu,
             patch(
-                "openkb.converter.convert_pdf_with_images", return_value="# Short PDF\n\nConverted."
+                "okforge.converter.convert_pdf_with_images",
+                return_value="# Short PDF\n\nConverted.",
             ) as mock_cpwi,
         ):
             fake_doc = MagicMock()
@@ -147,7 +148,7 @@ class TestConvertDocumentPdfLong:
         src.write_bytes(b"%PDF-1.4 fake long content")
 
         with (
-            patch("openkb.converter.pymupdf.open") as mock_mu,
+            patch("okforge.converter.pymupdf.open") as mock_mu,
         ):
             fake_doc = MagicMock()
             fake_doc.page_count = 200  # above threshold
@@ -188,13 +189,13 @@ class TestConvertDocumentUnsupported:
 
 class TestRegistryPath:
     def test_inside_kb_is_relative_posix(self, kb_dir):
-        from openkb.converter import _registry_path
+        from okforge.converter import _registry_path
 
         p = kb_dir / "raw" / "sub" / "doc.md"
         assert _registry_path(p, kb_dir) == "raw/sub/doc.md"
 
     def test_outside_kb_is_absolute_posix(self, kb_dir, tmp_path_factory):
-        from openkb.converter import _registry_path
+        from okforge.converter import _registry_path
 
         outside = tmp_path_factory.mktemp("elsewhere") / "doc.md"
         result = _registry_path(outside, kb_dir)
@@ -209,19 +210,19 @@ class TestRegistryPath:
 
 class TestResolveDocName:
     def _registry(self, kb_dir):
-        from openkb.state import HashRegistry
+        from okforge.state import HashRegistry
 
-        return HashRegistry(kb_dir / ".openkb" / "hashes.json")
+        return HashRegistry(kb_dir / ".okforge" / "hashes.json")
 
     def test_unique_name_stays_clean(self, kb_dir):
-        from openkb.converter import resolve_doc_name
+        from okforge.converter import resolve_doc_name
 
         src = kb_dir / "raw" / "report.md"
         src.write_text("x", encoding="utf-8")
         assert resolve_doc_name(src, kb_dir, self._registry(kb_dir)) == "report"
 
     def test_known_path_reuses_stored_doc_name(self, kb_dir):
-        from openkb.converter import resolve_doc_name
+        from okforge.converter import resolve_doc_name
 
         reg = self._registry(kb_dir)
         reg.add("h1", {"name": "report.md", "doc_name": "report-x1", "path": "inputs/report.md"})
@@ -233,7 +234,7 @@ class TestResolveDocName:
     def test_collision_gets_deterministic_suffix(self, kb_dir):
         import hashlib
 
-        from openkb.converter import _registry_path, resolve_doc_name
+        from okforge.converter import _registry_path, resolve_doc_name
 
         reg = self._registry(kb_dir)
         # "report" already taken by a different, path-indexed source
@@ -251,7 +252,7 @@ class TestResolveDocName:
         # failed ingest (or an out-of-contract manual drop): the registry is
         # the authority, so the clean name is reused and the artifact will
         # be overwritten — this is what keeps retry-after-failure stable.
-        from openkb.converter import resolve_doc_name
+        from okforge.converter import resolve_doc_name
 
         (kb_dir / "wiki" / "sources" / "report.md").write_text("old", encoding="utf-8")
         src = kb_dir / "raw" / "report.md"
@@ -259,7 +260,7 @@ class TestResolveDocName:
         assert resolve_doc_name(src, kb_dir, self._registry(kb_dir)) == "report"
 
     def test_legacy_entry_is_reused_and_backfilled(self, kb_dir):
-        from openkb.converter import _registry_path, resolve_doc_name
+        from okforge.converter import _registry_path, resolve_doc_name
 
         reg = self._registry(kb_dir)
         reg.add("h_old", {"name": "notes.md", "doc_name": "notes", "type": "md"})
@@ -270,7 +271,7 @@ class TestResolveDocName:
         assert reg.get("h_old")["path"] == _registry_path(src, kb_dir)
 
     def test_stem_is_sanitized(self, kb_dir):
-        from openkb.converter import resolve_doc_name
+        from okforge.converter import resolve_doc_name
 
         src = kb_dir / "raw" / "my report (final).md"
         src.write_text("x", encoding="utf-8")
@@ -279,7 +280,7 @@ class TestResolveDocName:
     def test_same_stem_different_extension_collides(self, kb_dir):
         # report.pdf vs an existing "report" (from report.md) — extension
         # does not disambiguate; the second source gets a suffix.
-        from openkb.converter import resolve_doc_name
+        from okforge.converter import resolve_doc_name
 
         reg = self._registry(kb_dir)
         reg.add("h1", {"name": "report.md", "doc_name": "report", "path": "inputs/report.md"})
@@ -289,21 +290,21 @@ class TestResolveDocName:
         assert name.startswith("report-") and name != "report"
 
     def test_cjk_stem_with_fullwidth_punctuation(self, kb_dir):
-        from openkb.converter import resolve_doc_name
+        from okforge.converter import resolve_doc_name
 
         src = kb_dir / "raw" / "技术报告（最终版）.md"
         src.write_text("x", encoding="utf-8")
         assert resolve_doc_name(src, kb_dir, self._registry(kb_dir)) == "技术报告-最终版"
 
     def test_all_symbol_stem_falls_back_to_document(self, kb_dir):
-        from openkb.converter import resolve_doc_name
+        from okforge.converter import resolve_doc_name
 
         src = kb_dir / "raw" / "!!!.md"
         src.write_text("x", encoding="utf-8")
         assert resolve_doc_name(src, kb_dir, self._registry(kb_dir)) == "document"
 
     def test_two_all_symbol_stems_second_gets_suffix(self, kb_dir):
-        from openkb.converter import resolve_doc_name
+        from okforge.converter import resolve_doc_name
 
         reg = self._registry(kb_dir)
         first = kb_dir / "raw" / "!!!.md"
@@ -319,7 +320,7 @@ class TestResolveDocName:
     def test_unclaimed_on_disk_long_doc_json_is_adopted(self, kb_dir):
         # Long docs leave wiki/sources/{name}.json — without a registry
         # entry it is likewise an unclaimed leftover: clean name is reused.
-        from openkb.converter import resolve_doc_name
+        from okforge.converter import resolve_doc_name
 
         (kb_dir / "wiki" / "sources" / "report.json").write_text("[]", encoding="utf-8")
         src = kb_dir / "raw" / "report.md"
@@ -333,8 +334,8 @@ class TestResolveDocName:
 
 
 def test_resolve_doc_name_from_key_clean(tmp_path):
-    from openkb.converter import resolve_doc_name_from_key
-    from openkb.state import HashRegistry
+    from okforge.converter import resolve_doc_name_from_key
+    from okforge.state import HashRegistry
 
     registry = HashRegistry(tmp_path / "hashes.json")
     name = resolve_doc_name_from_key("Attention Is All You Need", "pageindex-cloud:abc", registry)
@@ -344,8 +345,8 @@ def test_resolve_doc_name_from_key_clean(tmp_path):
 def test_resolve_doc_name_from_key_collision_suffix(tmp_path):
     import hashlib
 
-    from openkb.converter import resolve_doc_name_from_key
-    from openkb.state import HashRegistry
+    from okforge.converter import resolve_doc_name_from_key
+    from okforge.state import HashRegistry
 
     registry = HashRegistry(tmp_path / "hashes.json")
     registry.add("hash1", {"name": "paper.pdf", "doc_name": "paper"})
@@ -357,8 +358,8 @@ def test_resolve_doc_name_from_key_collision_suffix(tmp_path):
 
 
 def test_resolve_doc_name_from_key_reuses_known_path(tmp_path):
-    from openkb.converter import resolve_doc_name_from_key
-    from openkb.state import HashRegistry
+    from okforge.converter import resolve_doc_name_from_key
+    from okforge.state import HashRegistry
 
     registry = HashRegistry(tmp_path / "hashes.json")
     registry.add("h", {"doc_name": "kept-name", "path": "pageindex-cloud:dup"})
@@ -373,8 +374,8 @@ def test_resolve_doc_name_from_key_reuses_known_path(tmp_path):
 
 class TestConvertDocumentCollision:
     def test_same_basename_different_dirs_get_distinct_outputs(self, kb_dir):
-        from openkb.converter import convert_document
-        from openkb.state import HashRegistry
+        from okforge.converter import convert_document
+        from okforge.state import HashRegistry
 
         first = kb_dir / "inputs" / "first" / "report.md"
         second = kb_dir / "inputs" / "second" / "report.md"
@@ -386,7 +387,7 @@ class TestConvertDocumentCollision:
         r1 = convert_document(first, kb_dir)
         # Simulate add_single_file's registration so the second ingest
         # sees "report" as taken.
-        HashRegistry(kb_dir / ".openkb" / "hashes.json").add(
+        HashRegistry(kb_dir / ".okforge" / "hashes.json").add(
             r1.file_hash,
             {"name": "report.md", "doc_name": r1.doc_name, "path": "inputs/first/report.md"},
         )
@@ -400,14 +401,14 @@ class TestConvertDocumentCollision:
         assert r1.raw_path != r2.raw_path
 
     def test_skipped_dedup_carries_stored_doc_name(self, kb_dir):
-        from openkb.converter import convert_document
-        from openkb.state import HashRegistry
+        from okforge.converter import convert_document
+        from okforge.state import HashRegistry
 
         src = kb_dir / "inputs" / "notes.md"
         src.parent.mkdir(parents=True)
         src.write_text("# Notes", encoding="utf-8")
         first = convert_document(src, kb_dir)
-        HashRegistry(kb_dir / ".openkb" / "hashes.json").add(
+        HashRegistry(kb_dir / ".okforge" / "hashes.json").add(
             first.file_hash,
             {"name": "notes.md", "doc_name": first.doc_name, "path": "inputs/notes.md"},
         )
@@ -417,7 +418,7 @@ class TestConvertDocumentCollision:
         assert again.file_hash == first.file_hash
 
     def test_outputs_named_by_doc_name(self, kb_dir):
-        from openkb.converter import convert_document
+        from okforge.converter import convert_document
 
         src = kb_dir / "raw" / "my report (final).md"
         src.write_text("# R", encoding="utf-8")
@@ -431,7 +432,7 @@ class TestConvertDocumentCollision:
     def test_retry_after_failed_compile_keeps_clean_name(self, kb_dir):
         # convert succeeded but compile failed → nothing registered. The
         # retry must resolve to the SAME clean name, not a suffixed one.
-        from openkb.converter import convert_document
+        from okforge.converter import convert_document
 
         src = kb_dir / "inputs" / "report.md"
         src.parent.mkdir(parents=True)
@@ -445,14 +446,14 @@ class TestConvertDocumentCollision:
     def test_duplicate_copy_skip_does_not_backfill_path(self, kb_dir):
         # Re-adding an identical copy from another dir must dedup-skip
         # WITHOUT poisoning the legacy entry's path with the copy's path.
-        from openkb.converter import convert_document
-        from openkb.state import HashRegistry
+        from okforge.converter import convert_document
+        from okforge.state import HashRegistry
 
         src_a = kb_dir / "in" / "a" / "notes.md"
         src_a.parent.mkdir(parents=True)
         src_a.write_text("# Notes", encoding="utf-8")
         first = convert_document(src_a, kb_dir)
-        reg = HashRegistry(kb_dir / ".openkb" / "hashes.json")
+        reg = HashRegistry(kb_dir / ".okforge" / "hashes.json")
         # legacy-shaped entry: no path field (pre-upgrade registry)
         reg.add(first.file_hash, {"name": "notes.md", "doc_name": "notes", "type": "md"})
 
@@ -465,5 +466,5 @@ class TestConvertDocumentCollision:
         assert again.doc_name == "notes"
         # re-read from disk: the add() above persisted; convert must not
         # have backfilled the copy's path onto the legacy entry
-        reg2 = HashRegistry(kb_dir / ".openkb" / "hashes.json")
+        reg2 = HashRegistry(kb_dir / ".okforge" / "hashes.json")
         assert "path" not in reg2.get(first.file_hash)  # not poisoned

@@ -1,8 +1,8 @@
-"""Tests for openkb.agent.tools — plain function implementations."""
+"""Tests for okforge.agent.tools — plain function implementations."""
 
 from __future__ import annotations
 
-from openkb.agent.tools import (
+from okforge.agent.tools import (
     get_wiki_page_content,
     list_wiki_files,
     parse_pages,

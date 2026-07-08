@@ -1,10 +1,10 @@
-"""Tests for openkb.lint (Task 13)."""
+"""Tests for okforge.lint (Task 13)."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from openkb.lint import (
+from okforge.lint import (
     _EXCLUDED_FILES,
     _load_wiki_pages,
     _normalize_target,
@@ -20,7 +20,7 @@ from openkb.lint import (
     run_structural_lint,
     strip_ghost_wikilinks,
 )
-from openkb.state import HashRegistry
+from okforge.state import HashRegistry
 
 
 def _make_wiki(tmp_path: Path) -> Path:
@@ -192,7 +192,7 @@ class TestFindMissingEntriesRegistry:
     """
 
     def _add_entry(self, kb: Path, file_hash: str, metadata: dict) -> None:
-        HashRegistry(kb / ".openkb" / "hashes.json").add(file_hash, metadata)
+        HashRegistry(kb / ".okforge" / "hashes.json").add(file_hash, metadata)
 
     def test_registry_doc_name_resolves_renamed_artifacts(self, tmp_path):
         wiki = _make_wiki(tmp_path)
@@ -557,7 +557,7 @@ class TestBuildNormIndex:
 
 class TestFixBrokenLinksRestrictTo:
     """Issue #58 / Bug 2: ``fix_broken_links`` must support scoping the
-    rewrite to a caller-supplied subset of files so ``openkb remove``
+    rewrite to a caller-supplied subset of files so ``okforge remove``
     can clean up only the pages it actually touched (modified concept
     pages ∪ index.md) instead of sweeping the entire wiki and stripping
     pre-existing dangling links the user may want to keep.
@@ -566,7 +566,7 @@ class TestFixBrokenLinksRestrictTo:
     def test_default_behavior_scans_all_files(self, tmp_path):
         """Calling ``fix_broken_links(wiki)`` without ``restrict_to``
         still processes every wiki file — the existing global behavior
-        is preserved for callers that want it (e.g. ``openkb lint --fix``).
+        is preserved for callers that want it (e.g. ``okforge lint --fix``).
         """
         wiki = _make_wiki(tmp_path)
         a = wiki / "concepts" / "a.md"

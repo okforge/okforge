@@ -1,4 +1,4 @@
-"""Direct unit tests for :mod:`openkb.agent.skill_runner`.
+"""Direct unit tests for :mod:`okforge.agent.skill_runner`.
 
 Pre-existing test files mocked ``run_skill`` at every caller (deck
 creator, generator, chat slash). That covered the dispatch boundary but
@@ -25,7 +25,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from openkb.agent.skill_runner import (
+from okforge.agent.skill_runner import (
     MAX_TURNS,
     SkillNotFoundError,
     SkillRunResult,
@@ -105,7 +105,7 @@ async def test_run_skill_loads_body_into_instructions(tmp_path: Path):
         captured["tools"] = [getattr(t, "name", "?") for t in agent.tools]
         return MagicMock()
 
-    with patch("openkb.agent.skill_runner.Runner.run", new=fake_runner_run):
+    with patch("okforge.agent.skill_runner.Runner.run", new=fake_runner_run):
         result = await run_skill(
             skill_name="marker-skill",
             intent="DO-THE-INTENT",
@@ -150,7 +150,7 @@ async def test_run_skill_templates_output_path_and_enforces_existence(tmp_path: 
         )
         return MagicMock()
 
-    with patch("openkb.agent.skill_runner.Runner.run", new=fake_runner_run):
+    with patch("okforge.agent.skill_runner.Runner.run", new=fake_runner_run):
         result = await run_skill(
             skill_name="templated",
             intent="brief",
@@ -185,7 +185,7 @@ async def test_run_skill_raises_if_templated_output_missing_post_run(tmp_path: P
     async def fake_runner_run(agent, seed, **kw):
         return MagicMock()  # agent does nothing
 
-    with patch("openkb.agent.skill_runner.Runner.run", new=fake_runner_run):
+    with patch("okforge.agent.skill_runner.Runner.run", new=fake_runner_run):
         with pytest.raises(RuntimeError, match="did not write the expected"):
             await run_skill(
                 skill_name="lazy-skill",
@@ -226,7 +226,7 @@ async def test_run_skill_runs_deck_validator_when_mode_is_deck(tmp_path: Path):
         )
         return MagicMock()
 
-    with patch("openkb.agent.skill_runner.Runner.run", new=fake_runner_run):
+    with patch("okforge.agent.skill_runner.Runner.run", new=fake_runner_run):
         result = await run_skill(
             skill_name="deck-with-grammar",
             intent="x",
@@ -250,7 +250,7 @@ async def test_run_skill_no_validator_when_mode_not_deck(tmp_path: Path):
     async def fake_runner_run(agent, seed, **kw):
         return MagicMock()
 
-    with patch("openkb.agent.skill_runner.Runner.run", new=fake_runner_run):
+    with patch("okforge.agent.skill_runner.Runner.run", new=fake_runner_run):
         result = await run_skill(
             skill_name="no-mode-skill",
             intent="x",
@@ -270,7 +270,7 @@ async def test_run_skill_translates_max_turns_exceeded(tmp_path: Path):
     async def fake_runner_run(agent, seed, **kw):
         raise MaxTurnsExceeded("model spun forever")
 
-    with patch("openkb.agent.skill_runner.Runner.run", new=fake_runner_run):
+    with patch("okforge.agent.skill_runner.Runner.run", new=fake_runner_run):
         with pytest.raises(RuntimeError) as exc_info:
             await run_skill(
                 skill_name="loopy",
@@ -297,7 +297,7 @@ async def test_run_skill_default_max_turns(tmp_path: Path):
         captured["max_turns"] = kw.get("max_turns")
         return MagicMock()
 
-    with patch("openkb.agent.skill_runner.Runner.run", new=fake_runner_run):
+    with patch("okforge.agent.skill_runner.Runner.run", new=fake_runner_run):
         await run_skill(
             skill_name="default-budget",
             intent="x",

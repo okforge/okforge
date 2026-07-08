@@ -1,5 +1,5 @@
-from openkb import topic_tree as tt
-from openkb.agent.tools import read_topic_node
+from okforge import topic_tree as tt
+from okforge.agent.tools import read_topic_node
 
 
 def test_read_topic_node_renders(tmp_path):

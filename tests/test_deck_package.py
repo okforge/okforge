@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from openkb.deck import deck_dir, deck_workspace_dir, decks_root
+from okforge.deck import deck_dir, deck_workspace_dir, decks_root
 
 
 def test_decks_root(tmp_path: Path):

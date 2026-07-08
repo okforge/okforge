@@ -17,8 +17,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from openkb.agent.skill_runner import SkillNotFoundError, SkillRunResult
-from openkb.deck.creator import (
+from okforge.agent.skill_runner import SkillNotFoundError, SkillRunResult
+from okforge.deck.creator import (
     CRITIC_MAX_TURNS,
     CRITIC_SKILL,
     DEFAULT_DECK_SKILL,
@@ -66,7 +66,9 @@ async def test_run_deck_create_calls_editorial_skill_by_default(tmp_path: Path):
             return _producer_result(kb_dir, "test-deck")
         return _critic_result()
 
-    with patch("openkb.deck.creator.run_skill", new=AsyncMock(side_effect=fake_skill)) as run_skill:
+    with patch(
+        "okforge.deck.creator.run_skill", new=AsyncMock(side_effect=fake_skill)
+    ) as run_skill:
         result = await run_deck_create(
             kb_dir=kb_dir,
             deck_name="test-deck",
@@ -95,7 +97,9 @@ async def test_run_deck_create_honors_skill_name_override(tmp_path: Path):
         _write_index(kb_dir, "test-deck")
         return _producer_result(kb_dir, "test-deck")
 
-    with patch("openkb.deck.creator.run_skill", new=AsyncMock(side_effect=fake_skill)) as run_skill:
+    with patch(
+        "okforge.deck.creator.run_skill", new=AsyncMock(side_effect=fake_skill)
+    ) as run_skill:
         await run_deck_create(
             kb_dir=kb_dir,
             deck_name="test-deck",
@@ -120,7 +124,7 @@ async def test_run_deck_create_chains_critic_when_critique_true(tmp_path: Path):
             return _producer_result(kb_dir, "test-deck")
         return _critic_result()
 
-    with patch("openkb.deck.creator.run_skill", new=AsyncMock(side_effect=fake_skill)):
+    with patch("okforge.deck.creator.run_skill", new=AsyncMock(side_effect=fake_skill)):
         await run_deck_create(
             kb_dir=kb_dir,
             deck_name="test-deck",
@@ -144,7 +148,9 @@ async def test_run_deck_create_critic_max_turns(tmp_path: Path):
             return _producer_result(kb_dir, "test-deck")
         return _critic_result()
 
-    with patch("openkb.deck.creator.run_skill", new=AsyncMock(side_effect=fake_skill)) as run_skill:
+    with patch(
+        "okforge.deck.creator.run_skill", new=AsyncMock(side_effect=fake_skill)
+    ) as run_skill:
         await run_deck_create(
             kb_dir=kb_dir,
             deck_name="test-deck",
@@ -165,7 +171,7 @@ async def test_run_deck_create_raises_when_skill_missing(tmp_path: Path):
     async def missing_skill(**_):
         raise SkillNotFoundError("not installed")
 
-    with patch("openkb.deck.creator.run_skill", new=AsyncMock(side_effect=missing_skill)):
+    with patch("okforge.deck.creator.run_skill", new=AsyncMock(side_effect=missing_skill)):
         with pytest.raises(RuntimeError, match="not installed"):
             await run_deck_create(
                 kb_dir=kb_dir,
@@ -197,7 +203,7 @@ async def test_run_deck_create_critique_handles_symlinked_tmp(tmp_path: Path):
             )
         return _critic_result()
 
-    with patch("openkb.deck.creator.run_skill", new=AsyncMock(side_effect=fake_skill)):
+    with patch("okforge.deck.creator.run_skill", new=AsyncMock(side_effect=fake_skill)):
         # critique=True is what exercises the relative_to call
         await run_deck_create(
             kb_dir=kb_dir,
@@ -220,7 +226,7 @@ async def test_run_deck_create_tolerates_missing_critic(tmp_path: Path):
             return _producer_result(kb_dir, "test-deck")
         raise SkillNotFoundError("critic not installed")
 
-    with patch("openkb.deck.creator.run_skill", new=AsyncMock(side_effect=fake_skill)):
+    with patch("okforge.deck.creator.run_skill", new=AsyncMock(side_effect=fake_skill)):
         result = await run_deck_create(
             kb_dir=kb_dir,
             deck_name="test-deck",

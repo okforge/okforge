@@ -1,10 +1,10 @@
-"""Tests for openkb.frontmatter — the shared frontmatter helper module."""
+"""Tests for okforge.frontmatter — the shared frontmatter helper module."""
 
 from __future__ import annotations
 
 import yaml
 
-from openkb import frontmatter as fm
+from okforge import frontmatter as fm
 
 
 class TestKvLine:
@@ -107,7 +107,7 @@ class TestParseListValue:
 
 class TestOkfMeta:
     def test_okf_meta_lines_title_and_iso_timestamp(self):
-        from openkb import frontmatter
+        from okforge import frontmatter
 
         lines = frontmatter.okf_meta_lines("My Doc")
         assert lines[0] == 'title: "My Doc"'
@@ -120,7 +120,7 @@ class TestOkfMeta:
         )
 
     def test_refresh_okf_meta_updates_existing_block(self):
-        from openkb import frontmatter
+        from okforge import frontmatter
 
         fm = '---\ntype: "Concept"\ntitle: "old"\ntimestamp: "2020-01-01T00:00:00+00:00"\n---\n'
         out = frontmatter.refresh_okf_meta(fm, "new-title")
@@ -128,7 +128,7 @@ class TestOkfMeta:
         assert "2020-01-01" not in out
 
     def test_body_strips_frontmatter(self):
-        from openkb import frontmatter
+        from okforge import frontmatter
 
         assert frontmatter.body('---\ntype: "Source"\n---\n\n# Hi\n') == "# Hi\n"
         assert frontmatter.body("# No frontmatter\n") == "# No frontmatter\n"

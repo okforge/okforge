@@ -10,20 +10,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import openkb
+import okforge
 
 LIMIT = 800
 # Resolve the package from the imported module (not path math relative to this
 # file) so the gate cannot go silently vacuous if this test file moves.
-_PKG = Path(openkb.__file__).resolve().parent
+_PKG = Path(okforge.__file__).resolve().parent
 _REPO_ROOT = _PKG.parent
 
 # Grandfathered: existing debt. Keys are posix paths relative to the repo
 # root; add a brief reason comment with every new entry.
 _GRANDFATHERED = {
-    "openkb/cli.py",  # monolithic Click entry point; split into command groups
-    "openkb/agent/compiler.py",  # LLM wiki compiler; split into focused units
-    "openkb/agent/chat.py",  # chat loop; extract cohesive concerns
+    "okforge/cli.py",  # monolithic Click entry point; split into command groups
+    "okforge/agent/compiler.py",  # LLM wiki compiler; split into focused units
+    "okforge/agent/chat.py",  # chat loop; extract cohesive concerns
 }
 
 

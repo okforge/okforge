@@ -33,7 +33,7 @@ pip install git+https://github.com/okforge/okforge@main
 
 ```bash
 mkdir my-kb && cd my-kb
-okforge init          # scaffold raw/, wiki/, .openkb/  (--json for scripts)
+okforge init          # scaffold raw/, wiki/, .okforge/  (--json for scripts)
 okforge add paper.md  # ingest (pre-convert non-md/pdf inputs first)
 okforge query "What does the paper conclude?"
 okforge chat          # interactive REPL over the wiki
@@ -41,26 +41,40 @@ okforge list --json   # machine-readable state (also: status, okf-lint)
 okforge describe "One line about this project."   # curated description
 ```
 
-Non-Markdown, non-PDF inputs (docx, pptx, scans, photo catalogs, …)
-need converting to Markdown first, by a tool that understands your
-material — a page-aware OCR script, for example. A sibling
-`<doc>.pages.json` page array is what enables real `(p. N)` citations
-in the generated summaries.
-
 The query agent reads curated pages first, then drills for detail with
 a built-in `grep_wiki` lexical search (locate-then-read) rather than
 re-embedding everything. `okf-lint` checks a wiki bundle's OKF
 conformance.
 
-Configuration lives in `.openkb/config.yaml` (model, language, entity
-types, …) and `~/.config/openkb/global.yaml` (KB registry, default
+Configuration lives in `.okforge/config.yaml` (model, language, entity
+types, …) and `~/.config/okforge/global.yaml` (KB registry, default
 KB). The LLM endpoint is configured litellm-style — any
 OpenAI-compatible server works, including a local llama.cpp instance.
+
+### Ingesting scans and non-text documents
+
+`okforge add` accepts Markdown, plain text, and PDF directly. Anything
+else — docx, pptx, scanned pages, photo catalogs — needs converting to
+Markdown first, by a tool that knows your material. For scanned pages
+specifically, [**okforge-vision-ocr**](https://github.com/okforge/okforge-vision-ocr)
+(`pip install okforge-vision-ocr`) is built for exactly this: one
+vision-LLM call per page produces both a clean Markdown transcription
+and extracted photos/figures, plus a sibling `<doc>.pages.json` page
+array that `okforge add` reads directly for real `(p. N)` citations in
+the compiled summaries — no separate wiring needed.
+
+```bash
+okforge-vision-ocr scanned.pdf raw/book.md   # OCR + photo extraction
+okforge add raw/book.md                      # ingest, with page citations
+```
+
+It works against any OpenAI-compatible vision-language model (tuned
+against a locally-hosted Qwen3.6-27B-MTP, but not tied to it).
 
 ### Topic tree (experimental, per-KB opt-in)
 
 For knowledge bases that outgrow a flat concept list: set
-`topic_tree: true` in `.openkb/config.yaml`, then run `okforge
+`topic_tree: true` in `.okforge/config.yaml`, then run `okforge
 reindex`. Existing concepts cluster into named `concepts/<topic>/`
 directories, each with a `_topic.md` summary node; later ingests place
 new concepts by tree descent, and queries gain a `read_topic`
@@ -84,8 +98,8 @@ wiki/
 
 ```bash
 uv run --extra dev python -m pytest tests/   # test suite
-uv run --extra dev ruff check openkb tests   # lint
-uv run --extra dev ruff format openkb tests  # format
+uv run --extra dev ruff check okforge tests  # lint
+uv run --extra dev ruff format okforge tests # format
 ```
 
 ## Origins

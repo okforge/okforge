@@ -1,6 +1,6 @@
 import logging
 
-from openkb.config import (
+from okforge.config import (
     DEFAULT_CONFIG,
     get_extra_headers,
     get_timeout,
@@ -188,12 +188,12 @@ def test_resolve_litellm_settings_drops_non_string_keys():
 
 
 def test_resolve_litellm_settings_warns_on_non_mapping(caplog):
-    with caplog.at_level(logging.WARNING, logger="openkb.config"):
+    with caplog.at_level(logging.WARNING, logger="okforge.config"):
         assert resolve_litellm_settings({"litellm": ["drop_params"]}) == {}
     assert "must be a mapping" in caplog.text
 
 
 def test_resolve_litellm_settings_warns_on_non_string_key(caplog):
-    with caplog.at_level(logging.WARNING, logger="openkb.config"):
+    with caplog.at_level(logging.WARNING, logger="okforge.config"):
         resolve_litellm_settings({"litellm": {5: "x", "drop_params": True}})
     assert "non-string key" in caplog.text

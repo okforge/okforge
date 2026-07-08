@@ -82,7 +82,7 @@ Trigger misses (2):
   - [should-trigger → no] "How does attention scale with sequence length?"
   - [should-not   → yes] "What's the capital of France?"
 
-Eval set persisted to .openkb/eval-sets/transformer-attention.json
+Eval set persisted to .okforge/eval-sets/transformer-attention.json
 ```
 
 `--save` lets you re-run the *same* eval set later (`--eval-set <path>`) so you can

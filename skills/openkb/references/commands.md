@@ -57,7 +57,7 @@ also runs a semantic (LLM) pass.
 ## `openkb describe [TEXT]`
 
 Without `TEXT`: read-only, prints the curated project-level
-description. With `TEXT`: **mutates** `.openkb/config.yaml` — treat
+description. With `TEXT`: **mutates** `.okforge/config.yaml` — treat
 as a write command, don't pass `TEXT` without an explicit user
 request.
 
@@ -83,7 +83,8 @@ description of what they do; let the user run them:
   document(s), rewriting their summary/concept/entity pages
 - `openkb reindex` — clusters flat `concepts/` into the topic tree
   (LLM cost); no-op unless `topic_tree: true`
+- `openkb migrate` — moves a KB's legacy `.openkb/` to `.okforge/`
 
 Also: never directly `Edit`/`Write` any file under `<kb>/wiki/` or
-`<kb>/.openkb/`. That's the user's curated content (and openkb's
+`<kb>/.okforge/`. That's the user's curated content (and okforge's
 internal state) — the agent must not patch it directly.

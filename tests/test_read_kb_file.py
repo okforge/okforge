@@ -1,10 +1,10 @@
-"""Regression tests for ``openkb.agent.tools.read_kb_file``.
+"""Regression tests for ``okforge.agent.tools.read_kb_file``.
 
 Symmetric to :mod:`tests.test_write_kb_file`. ``read_kb_file`` is the
 read-side allow-list exposed to skill agents via the
 ``read_output_or_skill_file`` function tool in
-``openkb.agent.skill_runner``. It controls what files the agent can
-inspect — particularly that it **cannot** see ``.openkb/config.yaml``
+``okforge.agent.skill_runner``. It controls what files the agent can
+inspect — particularly that it **cannot** see ``.okforge/config.yaml``
 (which contains the LLM API key path), ``.env``, or anything outside
 ``wiki/``, ``output/``, ``skills/``.
 """
@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from openkb.agent.tools import read_kb_file
+from okforge.agent.tools import read_kb_file
 
 
 @pytest.fixture
@@ -46,9 +46,19 @@ def test_rejects_absolute_path_outside_kb(kb_root: str) -> None:
     assert result.startswith("Access denied")
 
 
-def test_rejects_dotopenkb_config(kb_root: str, tmp_path: Path) -> None:
-    """The .openkb/ directory holds the user's model config and is the
+def test_rejects_dotokforge_config(kb_root: str, tmp_path: Path) -> None:
+    """The .okforge/ directory holds the user's model config and is the
     canonical place an attacker would aim for. Must be inaccessible."""
+    (tmp_path / ".okforge").mkdir()
+    (tmp_path / ".okforge" / "config.yaml").write_text("model: gpt-5.4\n")
+    result = read_kb_file(".okforge/config.yaml", kb_root)
+    assert result.startswith("Access denied")
+
+
+def test_rejects_legacy_dotopenkb_config(kb_root: str, tmp_path: Path) -> None:
+    """A not-yet-migrated KB's .openkb/config.yaml must be equally
+    inaccessible — the allow-list rejects anything outside wiki/,
+    output/, skills/ regardless of state-dir name."""
     (tmp_path / ".openkb").mkdir()
     (tmp_path / ".openkb" / "config.yaml").write_text("model: gpt-5.4\n")
     result = read_kb_file(".openkb/config.yaml", kb_root)

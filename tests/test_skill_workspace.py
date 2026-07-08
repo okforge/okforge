@@ -1,4 +1,4 @@
-"""Tests for :mod:`openkb.skill.workspace` — iteration save/restore + diff."""
+"""Tests for :mod:`okforge.skill.workspace` — iteration save/restore + diff."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from openkb.skill.workspace import (
+from okforge.skill.workspace import (
     list_iterations,
     restore_iteration,
     save_iteration,

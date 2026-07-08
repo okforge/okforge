@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from prompt_toolkit.styles import Style
 
-from openkb.agent.chat import _handle_slash, _run_add, run_chat
-from openkb.agent.chat_session import ChatSession
+from okforge.agent.chat import _handle_slash, _run_add, run_chat
+from okforge.agent.chat_session import ChatSession
 
 
 def _setup_kb(tmp_path: Path) -> Path:
@@ -21,7 +21,7 @@ def _setup_kb(tmp_path: Path) -> Path:
     (kb_dir / "wiki" / "summaries").mkdir(parents=True)
     (kb_dir / "wiki" / "concepts").mkdir(parents=True)
     (kb_dir / "wiki" / "reports").mkdir(parents=True)
-    openkb_dir = kb_dir / ".openkb"
+    openkb_dir = kb_dir / ".okforge"
     openkb_dir.mkdir()
     (openkb_dir / "config.yaml").write_text("model: gpt-4o-mini\n")
     (openkb_dir / "hashes.json").write_text(json.dumps({}))
@@ -43,7 +43,7 @@ def _collect_fmt():
         for _cls, text in fragments:
             collected.append(text)
 
-    return patch("openkb.agent.chat._fmt", _fake_fmt), collected
+    return patch("okforge.agent.chat._fmt", _fake_fmt), collected
 
 
 # --- /status and /list use click.echo, captured by capsys ---
@@ -73,7 +73,7 @@ async def test_slash_list_empty(tmp_path, capsys):
 async def test_slash_list_with_docs(tmp_path, capsys):
     kb_dir = _setup_kb(tmp_path)
     hashes = {"abc": {"name": "paper.pdf", "type": "pdf"}}
-    (kb_dir / ".openkb" / "hashes.json").write_text(json.dumps(hashes))
+    (kb_dir / ".okforge" / "hashes.json").write_text(json.dumps(hashes))
     session = _make_session(kb_dir)
     result = await _handle_slash("/list", kb_dir, session, _STYLE)
     assert result is None
@@ -125,7 +125,7 @@ async def test_slash_add_single_file(tmp_path):
     doc = tmp_path / "test.md"
     doc.write_text("# Hello")
     p, _collected = _collect_fmt()
-    with p, patch("openkb.cli.add_single_file") as mock_add:
+    with p, patch("okforge.cli.add_single_file") as mock_add:
         await _run_add(str(doc), kb_dir, _STYLE)
         mock_add.assert_called_once_with(doc, kb_dir)
 
@@ -139,7 +139,7 @@ async def test_slash_add_directory_with_progress(tmp_path):
     (docs_dir / "b.txt").write_text("B")
     (docs_dir / "skip.xyz").write_text("skip")
     p, collected = _collect_fmt()
-    with p, patch("openkb.cli.add_single_file") as mock_add:
+    with p, patch("okforge.cli.add_single_file") as mock_add:
         await _run_add(str(docs_dir), kb_dir, _STYLE)
         assert mock_add.call_count == 2
     output = "".join(collected)
@@ -152,7 +152,7 @@ async def test_slash_add_directory_with_progress(tmp_path):
 async def test_slash_lint(tmp_path):
     kb_dir = _setup_kb(tmp_path)
     session = _make_session(kb_dir)
-    with patch("openkb.cli.run_lint", new_callable=AsyncMock, return_value=tmp_path / "report.md"):
+    with patch("okforge.cli.run_lint", new_callable=AsyncMock, return_value=tmp_path / "report.md"):
         result = await _handle_slash("/lint", kb_dir, session, _STYLE)
     assert result is None
 
@@ -176,11 +176,13 @@ async def test_run_chat_handles_ctrl_c_during_slash_command(tmp_path):
     p, collected = _collect_fmt()
     with (
         p,
-        patch("openkb.agent.chat.build_chat_agent", return_value=object()),
-        patch("openkb.agent.chat._print_header"),
-        patch("openkb.agent.chat._make_prompt_session", return_value=prompt),
+        patch("okforge.agent.chat.build_chat_agent", return_value=object()),
+        patch("okforge.agent.chat._print_header"),
+        patch("okforge.agent.chat._make_prompt_session", return_value=prompt),
         patch(
-            "openkb.agent.chat._handle_slash", new_callable=AsyncMock, side_effect=KeyboardInterrupt
+            "okforge.agent.chat._handle_slash",
+            new_callable=AsyncMock,
+            side_effect=KeyboardInterrupt,
         ),
     ):
         await run_chat(kb_dir, session, no_color=True)
@@ -225,9 +227,9 @@ def test_save_transcript_strips_ghost_wikilinks(tmp_path):
     responses may contain [[wikilinks]] to pages that don't exist on disk
     (the agent's instructions encourage wikilinks but its view of which
     pages exist can drift). The save path strips them before writing so
-    `openkb lint` doesn't surface them as broken links on the next run.
+    `okforge lint` doesn't surface them as broken links on the next run.
     """
-    from openkb.agent.chat import _save_transcript
+    from okforge.agent.chat import _save_transcript
 
     kb_dir = _setup_kb(tmp_path)
     # A real concept page on disk → valid wikilink target.

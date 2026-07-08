@@ -1,4 +1,4 @@
-"""Tests for openkb.skill.evaluator.
+"""Tests for okforge.skill.evaluator.
 
 The Runner.run call is mocked everywhere — no real LLM tokens spent.
 What we DO verify:
@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from openkb.skill.evaluator import (
+from okforge.skill.evaluator import (
     EvalPrompt,
     EvalResult,
     _read_description,
@@ -81,7 +81,7 @@ async def test_generate_eval_set_parses_plain_json(tmp_path):
     async def fake_runner(*args, **kwargs):
         return SimpleNamespace(final_output=_fake_generator_payload(10))
 
-    with patch("openkb.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
+    with patch("okforge.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
         prompts = await generate_eval_set(skill_dir, model="gpt-4o-mini", count=10)
 
     assert len(prompts) == 20
@@ -99,7 +99,7 @@ async def test_generate_eval_set_strips_code_fences(tmp_path):
     async def fake_runner(*args, **kwargs):
         return SimpleNamespace(final_output=fenced)
 
-    with patch("openkb.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
+    with patch("okforge.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
         prompts = await generate_eval_set(skill_dir, model="gpt-4o-mini", count=3)
 
     assert len(prompts) == 6
@@ -113,7 +113,7 @@ async def test_grade_one_returns_trigger_for_trigger_response():
     async def fake_runner(*args, **kwargs):
         return SimpleNamespace(final_output="TRIGGER")
 
-    with patch("openkb.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
+    with patch("okforge.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
         out = await grade_one("desc", "question?", model="gpt-4o-mini")
     assert out == "trigger"
 
@@ -123,7 +123,7 @@ async def test_grade_one_returns_no_trigger_for_negative_response():
     async def fake_runner(*args, **kwargs):
         return SimpleNamespace(final_output="NO-TRIGGER")
 
-    with patch("openkb.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
+    with patch("okforge.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
         out = await grade_one("desc", "question?", model="gpt-4o-mini")
     assert out == "no-trigger"
 
@@ -133,7 +133,7 @@ async def test_grade_one_handles_mixed_case():
     async def fake_runner(*args, **kwargs):
         return SimpleNamespace(final_output="trigger")
 
-    with patch("openkb.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
+    with patch("okforge.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
         out = await grade_one("desc", "question?", model="gpt-4o-mini")
     assert out == "trigger"
 
@@ -143,7 +143,7 @@ async def test_grade_one_handles_space_variant():
     async def fake_runner(*args, **kwargs):
         return SimpleNamespace(final_output="No Trigger")
 
-    with patch("openkb.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
+    with patch("okforge.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
         out = await grade_one("desc", "question?", model="gpt-4o-mini")
     assert out == "no-trigger"
 
@@ -153,7 +153,7 @@ async def test_grade_one_defaults_to_no_trigger_on_ambiguous_output():
     async def fake_runner(*args, **kwargs):
         return SimpleNamespace(final_output="hmm not sure")
 
-    with patch("openkb.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
+    with patch("okforge.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
         out = await grade_one("desc", "question?", model="gpt-4o-mini")
     assert out == "no-trigger"
 
@@ -185,8 +185,8 @@ async def test_run_eval_happy_path_all_correct(tmp_path):
         return match.expected
 
     with (
-        patch("openkb.skill.evaluator.grade_one", side_effect=fake_grade),
-        patch("openkb.skill.evaluator.grade_coverage", side_effect=_supported_coverage),
+        patch("okforge.skill.evaluator.grade_one", side_effect=fake_grade),
+        patch("okforge.skill.evaluator.grade_coverage", side_effect=_supported_coverage),
     ):
         result = await run_eval(skill_dir, model="gpt-4o-mini", eval_set=eval_set)
 
@@ -212,8 +212,8 @@ async def test_run_eval_reports_misses(tmp_path):
         return "trigger"
 
     with (
-        patch("openkb.skill.evaluator.grade_one", side_effect=fake_grade),
-        patch("openkb.skill.evaluator.grade_coverage", side_effect=_supported_coverage),
+        patch("okforge.skill.evaluator.grade_one", side_effect=fake_grade),
+        patch("okforge.skill.evaluator.grade_coverage", side_effect=_supported_coverage),
     ):
         result = await run_eval(skill_dir, model="gpt-4o-mini", eval_set=eval_set)
 
@@ -247,8 +247,8 @@ async def test_run_eval_reports_coverage_gaps(tmp_path):
         return "supported", ""
 
     with (
-        patch("openkb.skill.evaluator.grade_one", side_effect=perfect_trigger),
-        patch("openkb.skill.evaluator.grade_coverage", side_effect=hollow_coverage),
+        patch("okforge.skill.evaluator.grade_one", side_effect=perfect_trigger),
+        patch("okforge.skill.evaluator.grade_coverage", side_effect=hollow_coverage),
     ):
         result = await run_eval(skill_dir, model="gpt-4o-mini", eval_set=eval_set)
 
@@ -267,7 +267,7 @@ async def test_grade_coverage_parses_supported_verdict():
     async def fake_runner(*args, **kwargs):
         return SimpleNamespace(final_output="VERDICT: SUPPORTED\nREASON: body covers this directly")
 
-    with patch("openkb.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
+    with patch("okforge.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
         verdict, reason = await grade_coverage("body content", "question?", model="gpt-4o-mini")
     assert verdict == "supported"
     assert reason == "body covers this directly"
@@ -278,7 +278,7 @@ async def test_grade_coverage_reports_ambiguous_on_unparseable_output():
     async def fake_runner(*args, **kwargs):
         return SimpleNamespace(final_output="hmm not sure")
 
-    with patch("openkb.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
+    with patch("okforge.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
         verdict, reason = await grade_coverage("body", "q?", model="gpt-4o-mini")
     # Ambiguous is a third state — not collapsed into unsupported, so
     # grader-malfunction doesn't silently inflate coverage_misses.
@@ -305,8 +305,8 @@ async def test_run_eval_segregates_ambiguous_from_coverage_misses(tmp_path):
         return "ambiguous", "unparseable grader output: 'xxx'"
 
     with (
-        patch("openkb.skill.evaluator.grade_one", side_effect=perfect_trigger),
-        patch("openkb.skill.evaluator.grade_coverage", side_effect=mixed_coverage),
+        patch("okforge.skill.evaluator.grade_one", side_effect=perfect_trigger),
+        patch("okforge.skill.evaluator.grade_coverage", side_effect=mixed_coverage),
     ):
         result = await run_eval(skill_dir, model="gpt-4o-mini", eval_set=eval_set)
 
@@ -339,8 +339,8 @@ async def test_run_eval_captures_grader_failures_without_aborting(tmp_path):
         return "supported", ""
 
     with (
-        patch("openkb.skill.evaluator.grade_one", side_effect=flaky_trigger),
-        patch("openkb.skill.evaluator.grade_coverage", side_effect=flaky_coverage),
+        patch("okforge.skill.evaluator.grade_one", side_effect=flaky_trigger),
+        patch("okforge.skill.evaluator.grade_coverage", side_effect=flaky_coverage),
     ):
         result = await run_eval(skill_dir, model="gpt-4o-mini", eval_set=eval_set)
 
@@ -370,7 +370,7 @@ def test_save_and_load_eval_set_round_trip(tmp_path):
     prompts = _build_eval_set(2, 2)
     path = save_eval_set(tmp_path, "demo", prompts)
 
-    assert path == tmp_path / ".openkb" / "eval-sets" / "demo.json"
+    assert path == tmp_path / ".okforge" / "eval-sets" / "demo.json"
     assert path.is_file()
 
     data = json.loads(path.read_text())
@@ -396,7 +396,7 @@ async def test_generate_eval_set_translates_max_turns_to_runtime_error(tmp_path)
     async def fake_runner(*args, **kwargs):
         raise MaxTurnsExceeded("ran out")
 
-    with patch("openkb.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
+    with patch("okforge.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
         with pytest.raises(RuntimeError, match="max-turn cap"):
             await generate_eval_set(skill_dir, model="gpt-4o-mini")
 
@@ -409,6 +409,6 @@ async def test_generate_eval_set_translates_malformed_json_to_runtime_error(tmp_
     async def fake_runner(*args, **kwargs):
         return SimpleNamespace(final_output="this is not json at all")
 
-    with patch("openkb.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
+    with patch("okforge.skill.evaluator.Runner.run", new=AsyncMock(side_effect=fake_runner)):
         with pytest.raises(RuntimeError, match="non-JSON output"):
             await generate_eval_set(skill_dir, model="gpt-4o-mini")

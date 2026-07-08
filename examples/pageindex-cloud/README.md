@@ -111,7 +111,7 @@ $ openkb add --from-pageindex-cloud pi-cmn3k8...
   [SKIP] Already imported from PageIndex Cloud: pi-cmn3k8...
 ```
 
-The registry entry it writes (`.openkb/hashes.json`) — note there's no `raw_path`,
+The registry entry it writes (`.okforge/hashes.json`) — note there's no `raw_path`,
 because there's no local file:
 
 ```json

@@ -1,4 +1,4 @@
-"""Regression tests for ``openkb.agent.tools.write_kb_file``.
+"""Regression tests for ``okforge.agent.tools.write_kb_file``.
 
 Covers the allow-list (``wiki/explorations/**`` and ``output/**``), path
 traversal rejection, the bare-directory guard (e.g. ``"output"`` alone),
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from openkb.agent.tools import write_kb_file
+from okforge.agent.tools import write_kb_file
 
 
 @pytest.fixture

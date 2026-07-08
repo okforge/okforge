@@ -1,8 +1,8 @@
-"""Tests for openkb.tree_renderer."""
+"""Tests for okforge.tree_renderer."""
 
 from __future__ import annotations
 
-from openkb.tree_renderer import render_summary_md
+from okforge.tree_renderer import render_summary_md
 
 # ---------------------------------------------------------------------------
 # render_summary_md
@@ -52,7 +52,7 @@ class TestRenderSummaryMd:
 
     def test_internal_pageindex_image_refs_are_stripped_from_source_text(self):
         # PageIndex's own image refs point into its private
-        # .openkb/files/{doc_id}/images/... cache, which never resolves from
+        # .okforge/files/{doc_id}/images/... cache, which never resolves from
         # a wiki page, so they're stripped rather than quoted verbatim.
         tree = {
             "structure": [

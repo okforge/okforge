@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from openkb.mutation import publish_staged_tree, recover_pending_journals, snapshot_paths
+from okforge.mutation import publish_staged_tree, recover_pending_journals, snapshot_paths
 
 
 def test_recover_pending_add_journal_rolls_back_files(tmp_path):
     kb_dir = tmp_path
-    openkb_dir = kb_dir / ".openkb"
+    openkb_dir = kb_dir / ".okforge"
     openkb_dir.mkdir()
     target = kb_dir / "wiki" / "summaries" / "doc.md"
     target.parent.mkdir(parents=True)
@@ -42,7 +42,7 @@ def test_mark_committed_prevents_recovery_rollback(tmp_path):
     being undone when post-commit cleanup fails.
     """
     kb_dir = tmp_path
-    openkb_dir = kb_dir / ".openkb"
+    openkb_dir = kb_dir / ".okforge"
     openkb_dir.mkdir()
     target = kb_dir / "wiki" / "summaries" / "doc.md"
     target.parent.mkdir(parents=True)
@@ -75,7 +75,7 @@ def test_snapshot_paths_cleans_backup_dir_on_failure(tmp_path):
     with pytest.raises(ValueError):
         snapshot_paths(kb_dir, [outside], operation="add", details={})
 
-    staging = kb_dir / ".openkb" / "staging"
+    staging = kb_dir / ".okforge" / "staging"
     if staging.exists():
         assert not any(staging.iterdir())  # no orphan rollback-<uuid> dir
 
@@ -91,10 +91,10 @@ def test_exclusive_lock_drains_active_journal_before_yielding(tmp_path):
     intervening ``remove`` ignored and a later ``add`` then rolled back over
     the remove's edits.
     """
-    from openkb.locks import kb_ingest_lock
+    from okforge.locks import kb_ingest_lock
 
     kb_dir = tmp_path
-    openkb_dir = kb_dir / ".openkb"
+    openkb_dir = kb_dir / ".okforge"
     openkb_dir.mkdir()
     target = kb_dir / "wiki" / "summaries" / "doc.md"
     target.parent.mkdir(parents=True)
@@ -130,7 +130,7 @@ def test_publish_moves_staged_files_on_same_filesystem(tmp_path):
     whereas a copy leaves it behind.
     """
     kb_dir = tmp_path / "kb"
-    staging = kb_dir / ".openkb" / "staging" / "add-x"
+    staging = kb_dir / ".okforge" / "staging" / "add-x"
     src = _staged_raw(staging, "doc.pdf", b"%PDF-1.4 payload")
 
     publish_staged_tree(staging, kb_dir)
@@ -148,12 +148,12 @@ def test_published_files_keep_umask_mode_not_0600(tmp_path):
     prev_umask = os.umask(0o022)
     try:
         kb_dir = tmp_path / "kb"
-        staging = kb_dir / ".openkb" / "staging" / "add-y"
+        staging = kb_dir / ".okforge" / "staging" / "add-y"
         _staged_raw(staging, "doc.pdf", b"data")
 
         publish_staged_tree(staging, kb_dir)
 
-        from openkb.locks import _default_file_mode
+        from okforge.locks import _default_file_mode
 
         published = kb_dir / "raw" / "doc.pdf"
         assert (published.stat().st_mode & 0o777) == _default_file_mode()
@@ -170,10 +170,10 @@ def test_publish_falls_back_to_copy_on_cross_filesystem(tmp_path, monkeypatch):
     own temp-file rename is on the destination's filesystem and must succeed,
     so the fake raises exactly once then delegates to the real ``os.replace``.
     """
-    import openkb.mutation as mut
+    import okforge.mutation as mut
 
     kb_dir = tmp_path / "kb"
-    staging = kb_dir / ".openkb" / "staging" / "add-z"
+    staging = kb_dir / ".okforge" / "staging" / "add-z"
     _staged_raw(staging, "doc.pdf", b"cross-fs payload")
 
     real_replace = os.replace
@@ -233,7 +233,7 @@ def test_hardlinked_dir_rollback_correct_after_atomic_writes(tmp_path):
     writers must go through atomic temp+replace so the hardlink backup keeps
     pointing at the old inode while the live file moves to a new one.
     """
-    from openkb.locks import atomic_write_text
+    from okforge.locks import atomic_write_text
 
     kb_dir = tmp_path
     concepts = kb_dir / "wiki" / "concepts"
@@ -261,12 +261,12 @@ def test_hardlinked_dir_rollback_correct_after_atomic_writes(tmp_path):
 
 
 def test_openkb_files_tree_is_hardlinked(tmp_path):
-    """The PageIndex blob store (.openkb/files) is append-only across docs —
+    """The PageIndex blob store (.okforge/files) is append-only across docs —
     each add creates new {doc_id} blobs and never modifies existing ones — so
     it is hardlink-safe and must be snapshotted via hardlinks, not copied.
     """
     kb_dir = tmp_path
-    blobs = kb_dir / ".openkb" / "files" / "col"
+    blobs = kb_dir / ".okforge" / "files" / "col"
     blobs.mkdir(parents=True)
     existing = blobs / "an-existing-doc.pdf"
     existing.write_bytes(b"existing-blob")
@@ -274,13 +274,13 @@ def test_openkb_files_tree_is_hardlinked(tmp_path):
 
     snapshot = snapshot_paths(
         kb_dir,
-        [kb_dir / ".openkb" / "files"],
+        [kb_dir / ".okforge" / "files"],
         operation="add",
         details={},
-        hardlink_dirs={kb_dir / ".openkb" / "files"},
+        hardlink_dirs={kb_dir / ".okforge" / "files"},
     )
     try:
-        backup = snapshot.backup_dir / ".openkb" / "files" / "col" / "an-existing-doc.pdf"
+        backup = snapshot.backup_dir / ".okforge" / "files" / "col" / "an-existing-doc.pdf"
         assert backup.stat().st_ino == live_inode
     finally:
         snapshot.discard_best_effort()
@@ -295,7 +295,7 @@ def test_concept_writer_is_atomic_so_hardlink_rollback_restores(tmp_path):
     Exercises _write_concept's update path — the canonical in-place modify —
     through a real hardlinked snapshot + rollback.
     """
-    from openkb.agent.compiler import _write_concept
+    from okforge.agent.compiler import _write_concept
 
     kb_dir = tmp_path
     concepts = kb_dir / "wiki" / "concepts"
@@ -329,7 +329,7 @@ def test_fix_broken_links_is_atomic_so_hardlink_rollback_restores(tmp_path):
     it writes in place, a hardlinked snapshot aliases the live inode and rollback
     restores the cleaned content instead of the original page.
     """
-    from openkb.lint import fix_broken_links
+    from okforge.lint import fix_broken_links
 
     kb_dir = tmp_path
     wiki = kb_dir / "wiki"
@@ -361,7 +361,7 @@ def test_hardlink_falls_back_to_copy_on_eacces(tmp_path, monkeypatch):
     the snapshot still succeeds — otherwise the POSIX-oriented errno set aborts
     the whole add on Windows where a plain copy would have worked.
     """
-    import openkb.mutation as mut
+    import okforge.mutation as mut
 
     kb_dir = tmp_path
     concepts = kb_dir / "wiki" / "concepts"
@@ -399,10 +399,10 @@ def test_recovery_gives_up_on_persistently_failing_journal(tmp_path, monkeypatch
     MAX_ROLLBACK_ATTEMPTS failed attempts recovery discards it with a loud
     message so a human can intervene, bounding the on-disk retention.
     """
-    import openkb.mutation as mut
+    import okforge.mutation as mut
 
     kb_dir = tmp_path
-    (kb_dir / ".openkb").mkdir()
+    (kb_dir / ".okforge").mkdir()
     target = kb_dir / "wiki" / "summaries" / "doc.md"
     target.parent.mkdir(parents=True)
     target.write_text("before", encoding="utf-8")
@@ -420,7 +420,7 @@ def test_recovery_gives_up_on_persistently_failing_journal(tmp_path, monkeypatch
         recover_pending_journals(kb_dir)
 
     # Given up + discarded, not retained forever.
-    journal_dir = kb_dir / ".openkb" / "journal"
+    journal_dir = kb_dir / ".okforge" / "journal"
     assert not any(journal_dir.glob("*.json"))
 
 
@@ -444,10 +444,10 @@ def test_recover_skips_malformed_journal_without_bricking_lock(tmp_path, payload
     must instead drop the unrecoverable journal, log loudly, and keep going so
     the lock still acquires.
     """
-    from openkb.locks import kb_ingest_lock
+    from okforge.locks import kb_ingest_lock
 
     kb_dir = tmp_path
-    journal_dir = kb_dir / ".openkb" / "journal"
+    journal_dir = kb_dir / ".okforge" / "journal"
     journal_dir.mkdir(parents=True)
     (journal_dir / "deadbeef.json").write_text(payload, encoding="utf-8")
 
@@ -456,7 +456,7 @@ def test_recover_skips_malformed_journal_without_bricking_lock(tmp_path, payload
     assert not any(journal_dir.glob("*.json"))  # bad journal removed, not retained
 
     # The whole point: the KB's mutation lock still acquires afterwards.
-    with kb_ingest_lock(kb_dir / ".openkb"):
+    with kb_ingest_lock(kb_dir / ".okforge"):
         pass
 
 
@@ -493,7 +493,7 @@ def test_hardlinked_dir_rollback_leaves_untouched_files_in_place(tmp_path):
 
 
 def test_hardlinked_dir_rollback_removes_new_and_restores_modified(tmp_path):
-    from openkb.locks import atomic_write_text
+    from okforge.locks import atomic_write_text
 
     kb_dir = tmp_path
     concepts = kb_dir / "wiki" / "concepts"
@@ -527,7 +527,7 @@ def test_hardlinked_dir_rollback_prunes_new_nested_blob_dirs(tmp_path):
     are removed on rollback — including the now-empty newdoc/ directory.
     """
     kb_dir = tmp_path
-    files = kb_dir / ".openkb" / "files"
+    files = kb_dir / ".okforge" / "files"
     (files / "col").mkdir(parents=True)
     existing = files / "col" / "existing.pdf"
     existing.write_bytes(b"existing")
@@ -557,20 +557,20 @@ def test_hardlinked_dir_rollback_prunes_new_nested_blob_dirs(tmp_path):
 
 
 def test_track_new_removes_new_blob_on_rollback(tmp_path):
-    """The PageIndex blob under .openkb/files gets its {doc_id} name only once
+    """The PageIndex blob under .okforge/files gets its {doc_id} name only once
     indexing runs — after snapshot_paths. Instead of snapshotting the whole
     (append-only) blob store up front, the add path calls track_new() with the
     new artifacts; rollback must then remove exactly those and leave every
     pre-existing blob untouched.
     """
     kb_dir = tmp_path
-    blobs = kb_dir / ".openkb" / "files" / "col"
+    blobs = kb_dir / ".okforge" / "files" / "col"
     blobs.mkdir(parents=True)
     existing = blobs / "old-doc.pdf"
     existing.write_bytes(b"keep-me")
     existing_inode = existing.stat().st_ino
 
-    # Snapshot does NOT include .openkb/files at all.
+    # Snapshot does NOT include .okforge/files at all.
     snapshot = snapshot_paths(kb_dir, [kb_dir / "wiki"], operation="add", details={})
 
     # Indexing creates the new blob + its images subtree (doc_id now known).
@@ -596,7 +596,7 @@ def test_track_new_persists_to_journal_for_crash_recovery(tmp_path):
     acquisition (recover_pending_journals), not just via in-process rollback.
     """
     kb_dir = tmp_path
-    blobs = kb_dir / ".openkb" / "files" / "col"
+    blobs = kb_dir / ".okforge" / "files" / "col"
     blobs.mkdir(parents=True)
 
     snapshot = snapshot_paths(kb_dir, [kb_dir / "wiki"], operation="add", details={})
@@ -615,9 +615,9 @@ def test_snapshot_add_paths_excludes_blob_store(tmp_path):
     """The blob store is registered lazily via track_new(), so it must NOT be
     in the eager add snapshot path list (that was the O(total blobs)-per-add
     cost this change removes)."""
-    from openkb.cli import _snapshot_add_paths
+    from okforge.cli import _snapshot_add_paths
 
     paths = _snapshot_add_paths(tmp_path, "doc", None, None)
-    assert (tmp_path / ".openkb" / "files") not in paths
+    assert (tmp_path / ".okforge" / "files") not in paths
     # hashes.json / pageindex.db are still snapshotted eagerly.
-    assert (tmp_path / ".openkb" / "hashes.json") in paths
+    assert (tmp_path / ".okforge" / "hashes.json") in paths

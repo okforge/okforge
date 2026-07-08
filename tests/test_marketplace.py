@@ -1,4 +1,4 @@
-"""Tests for openkb.skill.marketplace — regenerate <kb>/.claude-plugin/marketplace.json
+"""Tests for okforge.skill.marketplace — regenerate <kb>/.claude-plugin/marketplace.json
 from <kb>/output/skills/*/SKILL.md."""
 
 from __future__ import annotations
@@ -6,12 +6,12 @@ from __future__ import annotations
 import json
 import textwrap
 
-from openkb.skill.marketplace import regenerate_marketplace
+from okforge.skill.marketplace import regenerate_marketplace
 
 
 def _make_kb(tmp_path):
-    (tmp_path / ".openkb").mkdir()
-    (tmp_path / ".openkb" / "config.yaml").write_text("model: gpt-4o-mini\n")
+    (tmp_path / ".okforge").mkdir()
+    (tmp_path / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
     (tmp_path / "output" / "skills").mkdir(parents=True)
     return tmp_path
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from openkb.agent.chat_session import ChatSession, load_session
+from okforge.agent.chat_session import ChatSession, load_session
 
 
 def _image_history() -> list[dict[str, object]]:

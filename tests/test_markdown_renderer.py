@@ -1,7 +1,7 @@
 from rich.console import Group
 from rich.text import Text
 
-from openkb.agent._markdown import render
+from okforge.agent._markdown import render
 
 
 def _group_text(renderable: Group) -> list[str]:

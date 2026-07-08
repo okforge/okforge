@@ -1,10 +1,10 @@
-"""Tests for openkb.cli._validate_skill_name — kebab-case slug enforcement."""
+"""Tests for okforge.cli._validate_skill_name — kebab-case slug enforcement."""
 
 from __future__ import annotations
 
 import pytest
 
-from openkb.cli import _validate_skill_name
+from okforge.cli import _validate_skill_name
 
 
 @pytest.mark.parametrize(

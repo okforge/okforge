@@ -16,7 +16,7 @@ import logging
 import litellm
 import pytest
 
-from openkb.cli import _KNOWN_PROVIDER_KEYS, _apply_litellm_settings, _setup_llm_key
+from okforge.cli import _KNOWN_PROVIDER_KEYS, _apply_litellm_settings, _setup_llm_key
 
 
 @pytest.fixture(autouse=True)
@@ -51,7 +51,7 @@ def test_apply_forwards_values_as_is_no_coercion():
 def test_apply_skips_unknown_key_with_warning(caplog):
     bogus = "definitely_not_a_litellm_setting_xyz"
     assert not hasattr(litellm, bogus)
-    with caplog.at_level(logging.WARNING, logger="openkb.cli"):
+    with caplog.at_level(logging.WARNING, logger="okforge.cli"):
         _apply_litellm_settings({bogus: 123})
     # Not silently created as a dead attribute…
     assert not hasattr(litellm, bogus)
@@ -65,7 +65,7 @@ def test_apply_refuses_to_overwrite_callable(caplog):
     — overwriting litellm.completion with a scalar would brick every later call.
     """
     assert callable(litellm.completion)
-    with caplog.at_level(logging.WARNING, logger="openkb.cli"):
+    with caplog.at_level(logging.WARNING, logger="okforge.cli"):
         _apply_litellm_settings({"completion": 5})
     assert callable(litellm.completion)  # untouched
     assert "completion" in caplog.text
@@ -108,7 +108,7 @@ def test_setup_llm_key_applies_litellm_block_from_config(tmp_path, monkeypatch):
     for key in _KNOWN_PROVIDER_KEYS:
         monkeypatch.delenv(key, raising=False)
 
-    openkb_dir = tmp_path / ".openkb"
+    openkb_dir = tmp_path / ".okforge"
     openkb_dir.mkdir(parents=True)
     (openkb_dir / "config.yaml").write_text(
         "model: gpt-4o-mini\nlitellm:\n  drop_params: true\n", encoding="utf-8"
@@ -119,7 +119,7 @@ def test_setup_llm_key_applies_litellm_block_from_config(tmp_path, monkeypatch):
 
 
 def _write_kb_config(tmp_path, body: str):
-    openkb_dir = tmp_path / ".openkb"
+    openkb_dir = tmp_path / ".okforge"
     openkb_dir.mkdir(parents=True)
     (openkb_dir / "config.yaml").write_text(body, encoding="utf-8")
 
@@ -134,7 +134,7 @@ def test_litellm_block_routes_timeout_and_extra_headers_per_call(tmp_path, monke
     """`timeout` / `extra_headers` inside the litellm: block route to the
     per-call stashes (not litellm module globals); the rest stay globals.
     """
-    from openkb.config import get_extra_headers, get_timeout
+    from okforge.config import get_extra_headers, get_timeout
 
     _isolate_env(monkeypatch)
     _write_kb_config(
@@ -158,7 +158,7 @@ def test_litellm_block_routes_timeout_and_extra_headers_per_call(tmp_path, monke
 
 def test_litellm_block_timeout_wins_over_legacy_toplevel(tmp_path, monkeypatch):
     """The litellm: block value wins over the legacy top-level key."""
-    from openkb.config import get_timeout
+    from okforge.config import get_timeout
 
     _isolate_env(monkeypatch)
     _write_kb_config(
@@ -174,7 +174,7 @@ def test_litellm_block_timeout_wins_over_legacy_toplevel(tmp_path, monkeypatch):
 
 def test_legacy_toplevel_timeout_still_works(tmp_path, monkeypatch):
     """Back-compat: a top-level `timeout:` (no litellm: block) is still honored."""
-    from openkb.config import get_timeout
+    from okforge.config import get_timeout
 
     _isolate_env(monkeypatch)
     _write_kb_config(tmp_path, "model: gpt-4o-mini\ntimeout: 900\n")
@@ -186,7 +186,7 @@ def test_litellm_block_extra_headers_win_over_legacy_toplevel(tmp_path, monkeypa
     """Symmetric with the timeout precedence test: a litellm: block extra_headers
     replaces the legacy top-level extra_headers.
     """
-    from openkb.config import get_extra_headers
+    from okforge.config import get_extra_headers
 
     _isolate_env(monkeypatch)
     _write_kb_config(
@@ -206,7 +206,7 @@ def test_litellm_block_empty_extra_headers_clears_legacy(tmp_path, monkeypatch):
     """Regression: an explicit empty `litellm: {extra_headers: {}}` CLEARS the
     legacy top-level headers, rather than silently reverting to them.
     """
-    from openkb.config import get_extra_headers
+    from okforge.config import get_extra_headers
 
     _isolate_env(monkeypatch)
     _write_kb_config(
@@ -219,20 +219,20 @@ def test_litellm_block_empty_extra_headers_clears_legacy(tmp_path, monkeypatch):
 
 class TestLlmExtraBody:
     def test_resolve_valid_mapping(self):
-        from openkb.config import resolve_llm_extra_body
+        from okforge.config import resolve_llm_extra_body
 
         cfg = {"llm_extra_body": {"chat_template_kwargs": {"enable_thinking": False}}}
         assert resolve_llm_extra_body(cfg) == {"chat_template_kwargs": {"enable_thinking": False}}
 
     def test_resolve_absent_and_malformed(self, caplog):
-        from openkb.config import resolve_llm_extra_body
+        from okforge.config import resolve_llm_extra_body
 
         assert resolve_llm_extra_body({}) == {}
         assert resolve_llm_extra_body({"llm_extra_body": "nope"}) == {}
         assert resolve_llm_extra_body({"llm_extra_body": {3: "x", "ok": 1}}) == {"ok": 1}
 
     def test_setup_llm_key_applies_from_config(self, tmp_path, monkeypatch):
-        from openkb.config import get_llm_extra_body
+        from okforge.config import get_llm_extra_body
 
         _isolate_env(monkeypatch)
         _write_kb_config(
@@ -248,8 +248,8 @@ class TestLlmExtraBody:
     def test_llm_call_forwards_extra_body(self):
         from unittest.mock import MagicMock, patch
 
-        from openkb.agent.compiler import _llm_call
-        from openkb.config import set_llm_extra_body
+        from okforge.agent.compiler import _llm_call
+        from okforge.config import set_llm_extra_body
 
         set_llm_extra_body({"chat_template_kwargs": {"enable_thinking": False}})
         mock_resp = MagicMock()
@@ -257,7 +257,7 @@ class TestLlmExtraBody:
         mock_resp.choices[0].message.content = "ok"
         mock_resp.usage = MagicMock(prompt_tokens=1, completion_tokens=1)
         mock_resp.usage.prompt_tokens_details = None
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(return_value=mock_resp)
             _llm_call("gpt-4o-mini", [{"role": "user", "content": "hi"}], "test")
         kwargs = mock_litellm.completion.call_args.kwargs
@@ -266,8 +266,8 @@ class TestLlmExtraBody:
     def test_llm_call_omits_extra_body_when_unset(self):
         from unittest.mock import MagicMock, patch
 
-        from openkb.agent.compiler import _llm_call
-        from openkb.config import set_llm_extra_body
+        from okforge.agent.compiler import _llm_call
+        from okforge.config import set_llm_extra_body
 
         set_llm_extra_body({})
         mock_resp = MagicMock()
@@ -275,7 +275,7 @@ class TestLlmExtraBody:
         mock_resp.choices[0].message.content = "ok"
         mock_resp.usage = MagicMock(prompt_tokens=1, completion_tokens=1)
         mock_resp.usage.prompt_tokens_details = None
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(return_value=mock_resp)
             _llm_call("gpt-4o-mini", [{"role": "user", "content": "hi"}], "test")
         assert "extra_body" not in mock_litellm.completion.call_args.kwargs

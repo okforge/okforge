@@ -1,4 +1,4 @@
-"""Tests for openkb.agent.query (Task 11)."""
+"""Tests for okforge.agent.query (Task 11)."""
 
 from __future__ import annotations
 
@@ -8,9 +8,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from openkb import frontmatter
-from openkb.agent.query import build_query_agent, run_query
-from openkb.schema import SCHEMA_MD
+from okforge import frontmatter
+from okforge.agent.query import build_query_agent, run_query
+from okforge.schema import SCHEMA_MD
 
 
 class TestBuildQueryAgent:
@@ -48,12 +48,12 @@ class TestRunQuery:
     @pytest.mark.asyncio
     async def test_run_query_returns_final_output(self, tmp_path):
         (tmp_path / "wiki").mkdir()
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".okforge").mkdir()
 
         mock_result = MagicMock()
         mock_result.final_output = "The answer is 42."
 
-        with patch("openkb.agent.query.Runner.run", new_callable=AsyncMock) as mock_run:
+        with patch("okforge.agent.query.Runner.run", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = mock_result
             answer = await run_query("What is the answer?", tmp_path, "gpt-4o-mini")
 
@@ -62,7 +62,7 @@ class TestRunQuery:
     @pytest.mark.asyncio
     async def test_run_query_passes_question_to_agent(self, tmp_path):
         (tmp_path / "wiki").mkdir()
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".okforge").mkdir()
 
         captured = {}
 
@@ -70,7 +70,7 @@ class TestRunQuery:
             captured["message"] = message
             return MagicMock(final_output="answer")
 
-        with patch("openkb.agent.query.Runner.run", side_effect=fake_run):
+        with patch("okforge.agent.query.Runner.run", side_effect=fake_run):
             await run_query("How does attention work?", tmp_path, "gpt-4o-mini")
 
         assert "How does attention work?" in captured["message"]
@@ -78,7 +78,7 @@ class TestRunQuery:
 
 def test_query_strategy_mentions_entities():
     """Task 10: query agent must direct who/what questions to entities/."""
-    from openkb.agent import query as query_mod
+    from okforge.agent import query as query_mod
 
     text = query_mod._QUERY_INSTRUCTIONS_TEMPLATE
     assert "entities/" in text
@@ -99,7 +99,7 @@ class TestFmtFallback:
         raise AssertionError("print_formatted_text must not run when output is not a TTY")
 
     def test_fmt_falls_back_when_stdout_is_not_tty(self, monkeypatch):
-        from openkb.agent import chat
+        from okforge.agent import chat
 
         monkeypatch.setattr(chat, "print_formatted_text", self._boom)
         buf = io.StringIO()  # StringIO.isatty() returns False
@@ -111,7 +111,7 @@ class TestFmtFallback:
         assert buf.getvalue() == "hello world\n"
 
     def test_fmt_falls_back_when_no_color_env(self, monkeypatch):
-        from openkb.agent import chat
+        from okforge.agent import chat
 
         monkeypatch.setattr(chat, "print_formatted_text", self._boom)
 
@@ -126,7 +126,7 @@ class TestFmtFallback:
         assert fake_tty.getvalue() == "boom\n"
 
     def test_fmt_uses_prompt_toolkit_on_real_tty(self, monkeypatch):
-        from openkb.agent import chat
+        from okforge.agent import chat
 
         called = {"count": 0}
 
@@ -151,7 +151,7 @@ class TestQueryAgentExtraHeaders:
     """Config-driven extra headers reach the agents-SDK model settings."""
 
     def test_extra_headers_applied_from_stash(self, tmp_path):
-        from openkb.config import set_extra_headers
+        from okforge.config import set_extra_headers
 
         set_extra_headers({"Editor-Version": "vscode/1.95.0"})
         agent = build_query_agent(str(tmp_path), "github_copilot/gpt-5-mini")
@@ -172,7 +172,7 @@ class TestQueryAgentTimeout:
     """
 
     def test_timeout_applied_from_stash(self, tmp_path):
-        from openkb.config import set_timeout
+        from okforge.config import set_timeout
 
         set_timeout(1200.0)
         agent = build_query_agent(str(tmp_path), "gpt-4o-mini")

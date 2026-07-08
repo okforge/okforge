@@ -1,4 +1,4 @@
-"""Tests for the `openkb recompile` CLI command.
+"""Tests for the `okforge recompile` CLI command.
 
 `recompile` re-runs the current compile pipeline (compile_short_doc /
 compile_long_doc) on already-indexed docs so pre-feature KBs gain the
@@ -25,9 +25,9 @@ from unittest.mock import AsyncMock, patch
 
 from click.testing import CliRunner
 
-from openkb.agent import compiler
-from openkb.cli import cli
-from openkb.schema import AGENTS_MD
+from okforge.agent import compiler
+from okforge.cli import cli
+from okforge.schema import AGENTS_MD
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -44,7 +44,7 @@ def _invoke(kb_dir, args, input_text=None):
 
 def _seed_short(kb_dir: Path) -> None:
     """One short doc with a source file on disk."""
-    (kb_dir / ".openkb" / "hashes.json").write_text(
+    (kb_dir / ".okforge" / "hashes.json").write_text(
         json.dumps(
             {
                 "h_s": {"name": "notes.md", "doc_name": "notes-h_s", "type": "md"},
@@ -60,7 +60,7 @@ def _seed_short(kb_dir: Path) -> None:
 
 def _seed_long(kb_dir: Path) -> None:
     """One long (PageIndex) doc with a summary file + doc_id on disk."""
-    (kb_dir / ".openkb" / "hashes.json").write_text(
+    (kb_dir / ".okforge" / "hashes.json").write_text(
         json.dumps(
             {
                 "h_l": {
@@ -87,8 +87,8 @@ def _seed_long(kb_dir: Path) -> None:
 def test_recompile_short_dispatches_compile_short_doc(kb_dir):
     _seed_short(kb_dir)
     with (
-        patch("openkb.agent.compiler.compile_short_doc", new_callable=AsyncMock) as short,
-        patch("openkb.agent.compiler.compile_long_doc", new_callable=AsyncMock) as long_,
+        patch("okforge.agent.compiler.compile_short_doc", new_callable=AsyncMock) as short,
+        patch("okforge.agent.compiler.compile_long_doc", new_callable=AsyncMock) as long_,
     ):
         result = _invoke(kb_dir, ["recompile", "notes.md"])
 
@@ -110,9 +110,9 @@ def test_recompile_short_dispatches_compile_short_doc(kb_dir):
 def test_recompile_long_dispatches_compile_long_doc_with_doc_id(kb_dir):
     _seed_long(kb_dir)
     with (
-        patch("openkb.agent.compiler.compile_long_doc", new_callable=AsyncMock) as long_,
-        patch("openkb.agent.compiler.compile_short_doc", new_callable=AsyncMock) as short,
-        patch("openkb.indexer.index_long_document") as index,
+        patch("okforge.agent.compiler.compile_long_doc", new_callable=AsyncMock) as long_,
+        patch("okforge.agent.compiler.compile_short_doc", new_callable=AsyncMock) as short,
+        patch("okforge.indexer.index_long_document") as index,
     ):
         result = _invoke(kb_dir, ["recompile", "paper.pdf"])
 
@@ -137,7 +137,7 @@ def test_recompile_long_dispatches_compile_long_doc_with_doc_id(kb_dir):
 def _seed_cloud(kb_dir: Path) -> None:
     """A pageindex_cloud import: long-doc layout (summary + doc_id + .json
     source), and NO .md source (the trap the short path would fall into)."""
-    (kb_dir / ".openkb" / "hashes.json").write_text(
+    (kb_dir / ".okforge" / "hashes.json").write_text(
         json.dumps(
             {
                 "h_c": {
@@ -164,8 +164,8 @@ def test_recompile_cloud_doc_dispatches_compile_long_doc(kb_dir):
     source + doc_id), not be misrouted to the short path that looks for a .md."""
     _seed_cloud(kb_dir)
     with (
-        patch("openkb.agent.compiler.compile_long_doc", new_callable=AsyncMock) as long_,
-        patch("openkb.agent.compiler.compile_short_doc", new_callable=AsyncMock) as short,
+        patch("okforge.agent.compiler.compile_long_doc", new_callable=AsyncMock) as long_,
+        patch("okforge.agent.compiler.compile_short_doc", new_callable=AsyncMock) as short,
     ):
         result = _invoke(kb_dir, ["recompile", "cloud-h_c"])
 
@@ -187,8 +187,8 @@ def test_recompile_dry_run_classifies_cloud_as_long(kb_dir):
 
 def test_is_long_doc_and_display_type_cover_cloud():
     """pageindex_cloud is treated as a long doc and displayed like a pageindex
-    doc in `openkb list` (no raw internal type string leaking)."""
-    from openkb.cli import _display_type, _is_long_doc
+    doc in `okforge list` (no raw internal type string leaking)."""
+    from okforge.cli import _display_type, _is_long_doc
 
     assert _is_long_doc({"type": "pageindex_cloud"}) is True
     assert _is_long_doc({"type": "long_pdf"}) is True
@@ -203,7 +203,7 @@ def test_is_long_doc_and_display_type_cover_cloud():
 
 def test_recompile_all_requires_confirmation(kb_dir):
     _seed_short(kb_dir)
-    with patch("openkb.agent.compiler.compile_short_doc") as short:
+    with patch("okforge.agent.compiler.compile_short_doc") as short:
         result = _invoke(kb_dir, ["recompile", "--all"], input_text="n\n")
 
     assert result.exit_code == 0, result.output
@@ -213,7 +213,7 @@ def test_recompile_all_requires_confirmation(kb_dir):
 
 def test_recompile_all_yes_bypasses_confirmation(kb_dir):
     _seed_short(kb_dir)
-    with patch("openkb.agent.compiler.compile_short_doc", new_callable=AsyncMock) as short:
+    with patch("okforge.agent.compiler.compile_short_doc", new_callable=AsyncMock) as short:
         result = _invoke(kb_dir, ["recompile", "--all", "--yes"])
 
     assert result.exit_code == 0, result.output
@@ -230,8 +230,8 @@ def test_recompile_dry_run_no_calls_no_writes(kb_dir):
     _seed_short(kb_dir)
     log_before = (kb_dir / "wiki" / "log.md").read_text()
     with (
-        patch("openkb.agent.compiler.compile_short_doc") as short,
-        patch("openkb.agent.compiler.compile_long_doc") as long_,
+        patch("okforge.agent.compiler.compile_short_doc") as short,
+        patch("okforge.agent.compiler.compile_long_doc") as long_,
     ):
         result = _invoke(kb_dir, ["recompile", "--all", "--dry-run"])
 
@@ -251,7 +251,7 @@ def test_recompile_dry_run_no_calls_no_writes(kb_dir):
 
 def test_recompile_skips_short_missing_source(kb_dir):
     """Short doc with no source on disk is warned + skipped; others run."""
-    (kb_dir / ".openkb" / "hashes.json").write_text(
+    (kb_dir / ".okforge" / "hashes.json").write_text(
         json.dumps(
             {
                 "h_ok": {"name": "ok.md", "doc_name": "ok-h_ok", "type": "md"},
@@ -262,7 +262,7 @@ def test_recompile_skips_short_missing_source(kb_dir):
     (kb_dir / "wiki" / "sources" / "ok-h_ok.md").write_text("# ok\n")
     (kb_dir / "wiki" / "log.md").write_text("# Log\n\n", encoding="utf-8")
 
-    with patch("openkb.agent.compiler.compile_short_doc", new_callable=AsyncMock) as short:
+    with patch("okforge.agent.compiler.compile_short_doc", new_callable=AsyncMock) as short:
         result = _invoke(kb_dir, ["recompile", "--all", "--yes"])
 
     assert result.exit_code == 0, result.output
@@ -275,7 +275,7 @@ def test_recompile_skips_short_missing_source(kb_dir):
 
 def test_recompile_skips_long_missing_doc_id(kb_dir):
     """Long doc lacking doc_id is warned + skipped; others run."""
-    (kb_dir / ".openkb" / "hashes.json").write_text(
+    (kb_dir / ".okforge" / "hashes.json").write_text(
         json.dumps(
             {
                 "h_l": {"name": "legacy.pdf", "doc_name": "legacy-h_l", "type": "long_pdf"},
@@ -285,7 +285,7 @@ def test_recompile_skips_long_missing_doc_id(kb_dir):
     (kb_dir / "wiki" / "summaries" / "legacy-h_l.md").write_text("# legacy\n")
     (kb_dir / "wiki" / "log.md").write_text("# Log\n\n", encoding="utf-8")
 
-    with patch("openkb.agent.compiler.compile_long_doc") as long_:
+    with patch("okforge.agent.compiler.compile_long_doc") as long_:
         result = _invoke(kb_dir, ["recompile", "--all", "--yes"])
 
     assert result.exit_code == 0, result.output
@@ -296,7 +296,7 @@ def test_recompile_skips_long_missing_doc_id(kb_dir):
 
 def test_recompile_skips_long_missing_summary(kb_dir):
     """Long doc with doc_id but no summary on disk is warned + skipped."""
-    (kb_dir / ".openkb" / "hashes.json").write_text(
+    (kb_dir / ".okforge" / "hashes.json").write_text(
         json.dumps(
             {
                 "h_l": {
@@ -310,7 +310,7 @@ def test_recompile_skips_long_missing_summary(kb_dir):
     )
     (kb_dir / "wiki" / "log.md").write_text("# Log\n\n", encoding="utf-8")
 
-    with patch("openkb.agent.compiler.compile_long_doc") as long_:
+    with patch("okforge.agent.compiler.compile_long_doc") as long_:
         result = _invoke(kb_dir, ["recompile", "--all", "--yes"])
 
     assert result.exit_code == 0, result.output
@@ -325,7 +325,7 @@ def test_recompile_skips_long_missing_summary(kb_dir):
 
 def test_recompile_requires_doc_or_all(kb_dir):
     _seed_short(kb_dir)
-    with patch("openkb.agent.compiler.compile_short_doc", new_callable=AsyncMock) as short:
+    with patch("okforge.agent.compiler.compile_short_doc", new_callable=AsyncMock) as short:
         result = _invoke(kb_dir, ["recompile"])
     # Usage guard echoes a message and returns (exit 0); no compile runs.
     assert "Specify a document name or pass --all" in result.output
@@ -334,7 +334,7 @@ def test_recompile_requires_doc_or_all(kb_dir):
 
 def test_recompile_doc_and_all_conflict(kb_dir):
     _seed_short(kb_dir)
-    with patch("openkb.agent.compiler.compile_short_doc", new_callable=AsyncMock) as short:
+    with patch("okforge.agent.compiler.compile_short_doc", new_callable=AsyncMock) as short:
         result = _invoke(kb_dir, ["recompile", "notes.md", "--all"])
     assert "not both" in result.output.lower()
     short.assert_not_called()
@@ -342,7 +342,7 @@ def test_recompile_doc_and_all_conflict(kb_dir):
 
 def test_recompile_unknown_doc_friendly_error(kb_dir):
     _seed_short(kb_dir)
-    with patch("openkb.agent.compiler.compile_short_doc") as short:
+    with patch("okforge.agent.compiler.compile_short_doc") as short:
         result = _invoke(kb_dir, ["recompile", "no-such-doc"])
     assert result.exit_code == 0, result.output
     assert "no-such-doc" in result.output
@@ -350,8 +350,8 @@ def test_recompile_unknown_doc_friendly_error(kb_dir):
 
 
 def test_recompile_empty_registry_friendly_error(kb_dir):
-    (kb_dir / ".openkb" / "hashes.json").write_text(json.dumps({}))
-    with patch("openkb.agent.compiler.compile_short_doc") as short:
+    (kb_dir / ".okforge" / "hashes.json").write_text(json.dumps({}))
+    with patch("okforge.agent.compiler.compile_short_doc") as short:
         result = _invoke(kb_dir, ["recompile", "--all"], input_text="y\n")
     assert result.exit_code == 0, result.output
     short.assert_not_called()
@@ -367,7 +367,7 @@ def test_recompile_refresh_schema_overwrites_when_differing(kb_dir):
     _seed_short(kb_dir)
     agents = kb_dir / "wiki" / "AGENTS.md"
     agents.write_text("OLD CUSTOM SCHEMA\n", encoding="utf-8")
-    with patch("openkb.agent.compiler.compile_short_doc", new_callable=AsyncMock):
+    with patch("okforge.agent.compiler.compile_short_doc", new_callable=AsyncMock):
         result = _invoke(kb_dir, ["recompile", "notes.md", "--refresh-schema"])
 
     assert result.exit_code == 0, result.output
@@ -381,7 +381,7 @@ def test_recompile_refresh_schema_noop_when_identical(kb_dir):
     _seed_short(kb_dir)
     agents = kb_dir / "wiki" / "AGENTS.md"
     agents.write_text(AGENTS_MD, encoding="utf-8")
-    with patch("openkb.agent.compiler.compile_short_doc", new_callable=AsyncMock):
+    with patch("okforge.agent.compiler.compile_short_doc", new_callable=AsyncMock):
         result = _invoke(kb_dir, ["recompile", "notes.md", "--refresh-schema"])
 
     assert result.exit_code == 0, result.output
@@ -392,7 +392,7 @@ def test_recompile_no_refresh_schema_by_default(kb_dir):
     _seed_short(kb_dir)
     agents = kb_dir / "wiki" / "AGENTS.md"
     agents.write_text("OLD CUSTOM SCHEMA\n", encoding="utf-8")
-    with patch("openkb.agent.compiler.compile_short_doc", new_callable=AsyncMock):
+    with patch("okforge.agent.compiler.compile_short_doc", new_callable=AsyncMock):
         result = _invoke(kb_dir, ["recompile", "notes.md"])
 
     assert result.exit_code == 0, result.output
@@ -407,7 +407,7 @@ def test_recompile_refresh_schema_noop_when_agents_missing(kb_dir):
     _seed_short(kb_dir)
     agents = kb_dir / "wiki" / "AGENTS.md"
     agents.unlink(missing_ok=True)
-    with patch("openkb.agent.compiler.compile_short_doc", new_callable=AsyncMock):
+    with patch("okforge.agent.compiler.compile_short_doc", new_callable=AsyncMock):
         result = _invoke(kb_dir, ["recompile", "notes.md", "--refresh-schema"])
 
     assert result.exit_code == 0, result.output
@@ -424,8 +424,8 @@ def test_compile_long_doc_backfills_summary_frontmatter(tmp_path):
     wiki = tmp_path / "wiki"
     (wiki / "summaries").mkdir(parents=True)
     (wiki / "concepts").mkdir(parents=True)
-    (tmp_path / ".openkb").mkdir()
-    (tmp_path / ".openkb" / "config.yaml").write_text(
+    (tmp_path / ".okforge").mkdir()
+    (tmp_path / ".okforge" / "config.yaml").write_text(
         "model: gpt-4o-mini\nlanguage: en\n", encoding="utf-8"
     )
     summary_path = wiki / "summaries" / "long.md"

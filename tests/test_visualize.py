@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from openkb.visualize import build_graph, render_html
+from okforge.visualize import build_graph, render_html
 
 
 def _wiki(tmp_path: Path) -> Path:

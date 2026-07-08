@@ -23,13 +23,15 @@ long-PDF JSON shape, wikilink resolution rules.
     └── reports/             Auto-generated lint reports
 ```
 
-Internal openkb state lives at `<kb-root>/.openkb/` (config, hash
-registry, PageIndex DB). **Do not read these directly** — use
-`openkb status` / `openkb list` for anything you'd want from them.
+Internal okforge state lives at `<kb-root>/.okforge/` (config, hash
+registry, PageIndex DB) — or `.openkb/` for a KB not yet migrated
+(`okforge migrate`); both work identically. **Do not read these
+directly** — use `openkb status` / `openkb list` for anything you'd
+want from them.
 
 ### Topic tree (optional, per-KB)
 
-If `.openkb/config.yaml` has `topic_tree: true`, `concepts/` is a
+If `.okforge/config.yaml` has `topic_tree: true`, `concepts/` is a
 **nested tree** instead of a flat directory: concept leaves may live
 several levels down at `concepts/<topic>/<subtopic>/<slug>.md`, and
 every directory in the tree (including `concepts/` itself) holds a

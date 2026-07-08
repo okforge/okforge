@@ -1,11 +1,11 @@
-"""Unit tests for openkb.skill.validator — pure-Python structural checks
+"""Unit tests for okforge.skill.validator — pure-Python structural checks
 on a compiled skill directory. No LLM, no network."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from openkb.skill.validator import (
+from okforge.skill.validator import (
     DESCRIPTION_MAX_CHARS,
     REFERENCE_MAX_BYTES,
     SKILL_MD_MAX_BYTES,

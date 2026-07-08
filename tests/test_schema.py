@@ -1,6 +1,6 @@
-"""Tests for openkb.schema constants (wiki AGENTS_MD schema doc)."""
+"""Tests for okforge.schema constants (wiki AGENTS_MD schema doc)."""
 
-from openkb.schema import AGENTS_MD
+from okforge.schema import AGENTS_MD
 
 
 def test_agents_md_documents_type_and_description():

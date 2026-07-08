@@ -1,4 +1,4 @@
-"""Tests for openkb list and openkb status CLI commands."""
+"""Tests for okforge list and okforge status CLI commands."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
-from openkb.cli import cli
+from okforge.cli import cli
 
 
 def _setup_kb(tmp_path: Path) -> Path:
@@ -20,7 +20,7 @@ def _setup_kb(tmp_path: Path) -> Path:
     (kb_dir / "wiki" / "concepts").mkdir(parents=True)
     (kb_dir / "wiki" / "entities").mkdir(parents=True)
     (kb_dir / "wiki" / "reports").mkdir(parents=True)
-    openkb_dir = kb_dir / ".openkb"
+    openkb_dir = kb_dir / ".okforge"
     openkb_dir.mkdir()
     (openkb_dir / "config.yaml").write_text("model: gpt-4o-mini\n")
     (openkb_dir / "hashes.json").write_text(json.dumps({}))
@@ -35,7 +35,7 @@ class TestListCommand:
         runner = CliRunner()
         with (
             runner.isolated_filesystem(temp_dir=tmp_path),
-            patch("openkb.cli._find_kb_dir", return_value=None),
+            patch("okforge.cli._find_kb_dir", return_value=None),
         ):
             result = runner.invoke(cli, ["list"])
             assert "No knowledge base found" in result.output
@@ -43,7 +43,7 @@ class TestListCommand:
     def test_list_empty_kb(self, tmp_path):
         kb_dir = _setup_kb(tmp_path)
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["list"])
             assert "No documents indexed yet" in result.output
 
@@ -53,10 +53,10 @@ class TestListCommand:
             "abc123": {"name": "paper.pdf", "type": "pdf"},
             "def456": {"name": "notes.md", "type": "md"},
         }
-        (kb_dir / ".openkb" / "hashes.json").write_text(json.dumps(hashes))
+        (kb_dir / ".okforge" / "hashes.json").write_text(json.dumps(hashes))
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["list"])
 
         assert "paper.pdf" in result.output
@@ -67,12 +67,12 @@ class TestListCommand:
     def test_list_shows_concepts(self, tmp_path):
         kb_dir = _setup_kb(tmp_path)
         hashes = {"abc": {"name": "paper.pdf", "type": "pdf"}}
-        (kb_dir / ".openkb" / "hashes.json").write_text(json.dumps(hashes))
+        (kb_dir / ".okforge" / "hashes.json").write_text(json.dumps(hashes))
         (kb_dir / "wiki" / "concepts" / "attention.md").write_text("# Attention")
         (kb_dir / "wiki" / "concepts" / "transformer.md").write_text("# Transformer")
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["list"])
 
         assert "attention" in result.output
@@ -81,10 +81,10 @@ class TestListCommand:
     def test_list_no_concepts_section_when_empty(self, tmp_path):
         kb_dir = _setup_kb(tmp_path)
         hashes = {"abc": {"name": "paper.pdf", "type": "pdf"}}
-        (kb_dir / ".openkb" / "hashes.json").write_text(json.dumps(hashes))
+        (kb_dir / ".okforge" / "hashes.json").write_text(json.dumps(hashes))
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["list"])
 
         assert result.exit_code == 0
@@ -94,12 +94,12 @@ class TestListCommand:
     def test_list_shows_entities(self, tmp_path):
         kb_dir = _setup_kb(tmp_path)
         hashes = {"abc": {"name": "paper.pdf", "type": "pdf"}}
-        (kb_dir / ".openkb" / "hashes.json").write_text(json.dumps(hashes))
+        (kb_dir / ".okforge" / "hashes.json").write_text(json.dumps(hashes))
         (kb_dir / "wiki" / "entities" / "ada-lovelace.md").write_text("# Ada")
         (kb_dir / "wiki" / "entities" / "openai.md").write_text("# OpenAI")
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["list"])
 
         assert "Entities (2):" in result.output
@@ -109,10 +109,10 @@ class TestListCommand:
     def test_list_no_entities_section_when_empty(self, tmp_path):
         kb_dir = _setup_kb(tmp_path)
         hashes = {"abc": {"name": "paper.pdf", "type": "pdf"}}
-        (kb_dir / ".openkb" / "hashes.json").write_text(json.dumps(hashes))
+        (kb_dir / ".okforge" / "hashes.json").write_text(json.dumps(hashes))
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["list"])
 
         assert result.exit_code == 0
@@ -125,7 +125,7 @@ class TestStatusCommand:
         runner = CliRunner()
         with (
             runner.isolated_filesystem(temp_dir=tmp_path),
-            patch("openkb.cli._find_kb_dir", return_value=None),
+            patch("okforge.cli._find_kb_dir", return_value=None),
         ):
             result = runner.invoke(cli, ["status"])
             assert "No knowledge base found" in result.output
@@ -139,7 +139,7 @@ class TestStatusCommand:
         (kb_dir / "wiki" / "concepts" / "concept1.md").write_text("# Concept")
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["status"])
 
         assert "sources" in result.output
@@ -155,10 +155,10 @@ class TestStatusCommand:
             "def": {"name": "b.pdf", "type": "pdf"},
             "ghi": {"name": "c.md", "type": "md"},
         }
-        (kb_dir / ".openkb" / "hashes.json").write_text(json.dumps(hashes))
+        (kb_dir / ".okforge" / "hashes.json").write_text(json.dumps(hashes))
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["status"])
 
         assert "3" in result.output  # total indexed count
@@ -169,7 +169,7 @@ class TestStatusCommand:
         (kb_dir / "raw" / "file2.pdf").write_bytes(b"PDF")
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["status"])
 
         assert "raw" in result.output
@@ -178,7 +178,7 @@ class TestStatusCommand:
         kb_dir = _setup_kb(tmp_path)
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["status"])
 
         assert result.exit_code == 0
@@ -192,7 +192,7 @@ class TestStatusKbPath:
         kb_dir = _setup_kb(tmp_path)
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["status"])
 
         assert result.exit_code == 0
@@ -210,13 +210,13 @@ class TestListJson:
             "abc123": {"name": "paper.pdf", "type": "long_pdf", "doc_name": "paper", "pages": 30},
             "def456": {"name": "notes.md", "type": "md"},
         }
-        (kb_dir / ".openkb" / "hashes.json").write_text(json.dumps(hashes))
+        (kb_dir / ".okforge" / "hashes.json").write_text(json.dumps(hashes))
         (kb_dir / "wiki" / "summaries" / "paper.md").write_text("s")
         (kb_dir / "wiki" / "concepts" / "attention.md").write_text("c")
         (kb_dir / "wiki" / "entities" / "acme.md").write_text("e")
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["list", "--json"])
 
         assert result.exit_code == 0
@@ -235,7 +235,7 @@ class TestListJson:
     def test_list_json_empty_kb(self, tmp_path):
         kb_dir = _setup_kb(tmp_path)
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["list", "--json"])
         data = json.loads(result.output)
         assert data["documents"] == []
@@ -245,7 +245,7 @@ class TestListJson:
         runner = CliRunner()
         with (
             runner.isolated_filesystem(temp_dir=tmp_path),
-            patch("openkb.cli._find_kb_dir", return_value=None),
+            patch("okforge.cli._find_kb_dir", return_value=None),
         ):
             result = runner.invoke(cli, ["list", "--json"])
         assert result.exit_code == 1
@@ -256,10 +256,10 @@ class TestListJson:
         kb_dir = _setup_kb(tmp_path)
         long_name = "a-very-long-document-name-that-goes-well-past-forty-characters.md"
         hashes = {"h1": {"name": long_name, "type": "md"}}
-        (kb_dir / ".openkb" / "hashes.json").write_text(json.dumps(hashes))
+        (kb_dir / ".okforge" / "hashes.json").write_text(json.dumps(hashes))
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["list", "--json"])
         data = json.loads(result.output)
         assert data["documents"][0]["name"] == long_name
@@ -270,10 +270,10 @@ class TestStatusJson:
         kb_dir = _setup_kb(tmp_path)
         (kb_dir / "wiki" / "summaries" / "doc.md").write_text("s")
         (kb_dir / "raw" / "doc.pdf").write_bytes(b"x")
-        (kb_dir / ".openkb" / "hashes.json").write_text(json.dumps({"h": {"name": "doc.pdf"}}))
+        (kb_dir / ".okforge" / "hashes.json").write_text(json.dumps({"h": {"name": "doc.pdf"}}))
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["status", "--json"])
 
         assert result.exit_code == 0
@@ -291,7 +291,7 @@ class TestStatusJson:
         runner = CliRunner()
         with (
             runner.isolated_filesystem(temp_dir=tmp_path),
-            patch("openkb.cli._find_kb_dir", return_value=None),
+            patch("okforge.cli._find_kb_dir", return_value=None),
         ):
             result = runner.invoke(cli, ["status", "--json"])
         assert result.exit_code == 1
@@ -302,7 +302,7 @@ class TestInitJson:
     def test_init_json_is_noninteractive_and_reports(self, tmp_path):
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path) as fs:
-            with patch("openkb.cli.register_kb"):
+            with patch("okforge.cli.register_kb"):
                 # No stdin provided: --json must never prompt.
                 result = runner.invoke(cli, ["init", "-m", "gpt-4o-mini", "-l", "en", "--json"])
             assert result.exit_code == 0, result.output
@@ -311,13 +311,13 @@ class TestInitJson:
             assert data["kb_dir"] == str(Path(fs).resolve())
             assert data["model"] == "gpt-4o-mini"
             assert data["language"] == "en"
-            assert (Path(fs) / ".openkb" / "config.yaml").exists()
+            assert (Path(fs) / ".okforge" / "config.yaml").exists()
             assert (Path(fs) / "wiki" / "index.md").exists()
 
     def test_init_json_already_initialised(self, tmp_path):
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path):
-            Path(".openkb").mkdir()
+            Path(".okforge").mkdir()
             result = runner.invoke(cli, ["init", "--json"])
             data = json.loads(result.output)
             assert data["created"] is False
@@ -331,7 +331,7 @@ class TestOkfLint:
             '---\ntype: "Summary"\n---\n\n# Doc\n'
         )
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["okf-lint", "--json"])
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -345,7 +345,7 @@ class TestOkfLint:
         (kb_dir / "wiki" / "sources" / "raw.md").write_text("# No frontmatter\n")
         (kb_dir / "wiki" / "concepts" / "c.md").write_text('---\ndescription: "x"\n---\n\nbody\n')
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["okf-lint", "--json"])
         assert result.exit_code == 1
         data = json.loads(result.output)
@@ -356,7 +356,7 @@ class TestOkfLint:
         kb_dir = _setup_kb(tmp_path)
         (kb_dir / "wiki" / "index.md").unlink()
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("okforge.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["okf-lint", "--json"])
         data = json.loads(result.output)
         assert any("index.md: missing" in i for i in data["issues"])
@@ -364,7 +364,7 @@ class TestOkfLint:
 
 
 def test_okf_lint_ignores_dot_dirs(tmp_path):
-    from openkb.okf import okf_check
+    from okforge.okf import okf_check
 
     wiki = tmp_path / "wiki"
     (wiki / ".trash").mkdir(parents=True)

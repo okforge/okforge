@@ -1,4 +1,4 @@
-"""Tests for openkb.agent.tools.grep_wiki_files — grep-based wiki search."""
+"""Tests for okforge.agent.tools.grep_wiki_files — grep-based wiki search."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import shutil
 
 import pytest
 
-import openkb.agent.tools as tools_mod
-from openkb.agent.tools import grep_wiki_files
+import okforge.agent.tools as tools_mod
+from okforge.agent.tools import grep_wiki_files
 
 _HAS_GREP = shutil.which("grep") is not None
 requires_grep = pytest.mark.skipif(not _HAS_GREP, reason="system grep not available")

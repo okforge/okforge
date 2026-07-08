@@ -1,8 +1,8 @@
-"""Tests for openkb.links — wikilink → relative markdown link conversion."""
+"""Tests for okforge.links — wikilink → relative markdown link conversion."""
 
 from __future__ import annotations
 
-from openkb.links import link_style, wikilinks_to_markdown
+from okforge.links import link_style, wikilinks_to_markdown
 
 
 class TestLinkStyle:

@@ -1,4 +1,4 @@
-"""Tests for the /skill new slash command inside openkb chat."""
+"""Tests for the /skill new slash command inside okforge chat."""
 
 from __future__ import annotations
 
@@ -7,14 +7,14 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from prompt_toolkit.styles import Style
 
-from openkb.agent.chat import _handle_slash
-from openkb.agent.chat_session import ChatSession
+from okforge.agent.chat import _handle_slash
+from okforge.agent.chat_session import ChatSession
 
 
 def _make_kb(tmp_path):
-    (tmp_path / ".openkb").mkdir()
-    (tmp_path / ".openkb" / "config.yaml").write_text("model: gpt-4o-mini\n")
-    (tmp_path / ".openkb" / "chats").mkdir()
+    (tmp_path / ".okforge").mkdir()
+    (tmp_path / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
+    (tmp_path / ".okforge" / "chats").mkdir()
     (tmp_path / "wiki" / "concepts").mkdir(parents=True)
     (tmp_path / "wiki" / "summaries").mkdir(parents=True)
     (tmp_path / "wiki" / "index.md").write_text("# index\n")
@@ -37,7 +37,7 @@ async def test_slash_skill_new_calls_generator(tmp_path):
             f"---\nname: {skill_name}\ndescription: t\n---\n\n# {skill_name}\n"
         )
 
-    with patch("openkb.skill.generator.run_skill_create", new=AsyncMock(side_effect=fake_run)):
+    with patch("okforge.skill.generator.run_skill_create", new=AsyncMock(side_effect=fake_run)):
         action = await _handle_slash('/skill new demo "test intent"', kb, session, style)
 
     assert action is None  # continues chat session
@@ -70,10 +70,10 @@ async def test_slash_skill_unknown_subcommand(tmp_path):
 async def test_slash_skill_new_rejects_empty_wiki(tmp_path):
     """Chat / slash command must catch freshly-init'd KBs (no compiled content)."""
     kb = tmp_path
-    (kb / ".openkb").mkdir()
-    (kb / ".openkb" / "config.yaml").write_text("model: gpt-4o-mini\n")
-    (kb / ".openkb" / "chats").mkdir()
-    # Empty wiki/ — exactly what `openkb init` creates
+    (kb / ".okforge").mkdir()
+    (kb / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
+    (kb / ".okforge" / "chats").mkdir()
+    # Empty wiki/ — exactly what `okforge init` creates
     (kb / "wiki" / "concepts").mkdir(parents=True)
     (kb / "wiki" / "summaries").mkdir(parents=True)
     (kb / "wiki" / "index.md").write_text("# index\n")
@@ -89,7 +89,7 @@ async def test_slash_skill_new_rejects_empty_wiki(tmp_path):
 def test_preflight_gate_counts_entities(tmp_path):
     """The wiki-content gate must accept a KB whose only compiled content
     lives in entities/ (no concept or summary pages yet)."""
-    from openkb.cli import _preflight_skill_new
+    from okforge.cli import _preflight_skill_new
 
     kb = tmp_path
     (kb / "wiki" / "entities").mkdir(parents=True)

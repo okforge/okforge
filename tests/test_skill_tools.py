@@ -1,8 +1,8 @@
-"""Tests for openkb.skill.tools — path-scoped IO for the skill-create agent."""
+"""Tests for okforge.skill.tools — path-scoped IO for the skill-create agent."""
 
 from __future__ import annotations
 
-from openkb.skill.tools import (
+from okforge.skill.tools import (
     list_wiki_dir,
     read_wiki_file_for_skill,
     write_skill_file,

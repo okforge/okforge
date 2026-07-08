@@ -1,4 +1,4 @@
-"""End-to-end tests for `openkb skill new` via click.testing.CliRunner.
+"""End-to-end tests for `okforge skill new` via click.testing.CliRunner.
 
 The agent runner is patched so these tests don't burn LLM tokens. They
 verify the CLI wiring: KB detection, name validation, overwrite logic,
@@ -11,12 +11,12 @@ from unittest.mock import AsyncMock, patch
 
 from click.testing import CliRunner
 
-from openkb.cli import cli
+from okforge.cli import cli
 
 
 def _make_kb(tmp_path):
-    (tmp_path / ".openkb").mkdir()
-    (tmp_path / ".openkb" / "config.yaml").write_text("model: gpt-4o-mini\n")
+    (tmp_path / ".okforge").mkdir()
+    (tmp_path / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
     (tmp_path / "wiki" / "concepts").mkdir(parents=True)
     (tmp_path / "wiki" / "summaries").mkdir(parents=True)
     (tmp_path / "wiki" / "index.md").write_text("# index\n")
@@ -43,8 +43,8 @@ def test_skill_new_succeeds_and_writes_files(tmp_path):
         _fake_compile(kb_dir, skill_name)
 
     with (
-        patch("openkb.cli._find_kb_dir", return_value=kb),
-        patch("openkb.skill.generator.run_skill_create", new=AsyncMock(side_effect=fake_run)),
+        patch("okforge.cli._find_kb_dir", return_value=kb),
+        patch("okforge.skill.generator.run_skill_create", new=AsyncMock(side_effect=fake_run)),
     ):
         result = runner.invoke(cli, ["skill", "new", "demo", "test intent"])
 
@@ -58,7 +58,7 @@ def test_skill_new_succeeds_and_writes_files(tmp_path):
 def test_skill_new_rejects_invalid_name(tmp_path):
     kb = _make_kb(tmp_path)
     runner = CliRunner()
-    with patch("openkb.cli._find_kb_dir", return_value=kb):
+    with patch("okforge.cli._find_kb_dir", return_value=kb):
         result = runner.invoke(cli, ["skill", "new", "BadName", "x"])
     assert result.exit_code != 0
     assert "lowercase" in result.output.lower()
@@ -66,7 +66,7 @@ def test_skill_new_rejects_invalid_name(tmp_path):
 
 def test_skill_new_errors_without_kb(tmp_path):
     runner = CliRunner()
-    with patch("openkb.cli._find_kb_dir", return_value=None):
+    with patch("okforge.cli._find_kb_dir", return_value=None):
         result = runner.invoke(cli, ["skill", "new", "demo", "x"])
     assert result.exit_code != 0
     assert "No knowledge base" in result.output
@@ -74,11 +74,11 @@ def test_skill_new_errors_without_kb(tmp_path):
 
 def test_skill_new_errors_with_empty_wiki(tmp_path):
     kb = tmp_path
-    (kb / ".openkb").mkdir()
-    (kb / ".openkb" / "config.yaml").write_text("model: gpt-4o-mini\n")
+    (kb / ".okforge").mkdir()
+    (kb / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
     # No wiki/ directory
     runner = CliRunner()
-    with patch("openkb.cli._find_kb_dir", return_value=kb):
+    with patch("okforge.cli._find_kb_dir", return_value=kb):
         result = runner.invoke(cli, ["skill", "new", "demo", "x"])
     assert result.exit_code != 0
     assert "wiki" in result.output.lower()
@@ -89,14 +89,14 @@ def test_skill_new_errors_with_freshly_init_wiki(tmp_path):
     No documents have been ingested. The skill factory must refuse to compile
     rather than spend tokens on an empty wiki."""
     kb = tmp_path
-    (kb / ".openkb").mkdir()
-    (kb / ".openkb" / "config.yaml").write_text("model: gpt-4o-mini\n")
-    # Mirror openkb init's layout: empty concepts + summaries, just index.md
+    (kb / ".okforge").mkdir()
+    (kb / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
+    # Mirror okforge init's layout: empty concepts + summaries, just index.md
     (kb / "wiki" / "concepts").mkdir(parents=True)
     (kb / "wiki" / "summaries").mkdir(parents=True)
     (kb / "wiki" / "index.md").write_text("# index\n")
     runner = CliRunner()
-    with patch("openkb.cli._find_kb_dir", return_value=kb):
+    with patch("okforge.cli._find_kb_dir", return_value=kb):
         result = runner.invoke(cli, ["skill", "new", "demo", "x"])
     assert result.exit_code != 0
     assert "compiled content" in result.output.lower() or "ingest" in result.output.lower()
@@ -106,7 +106,7 @@ def test_skill_new_aborts_when_target_exists_without_yes(tmp_path):
     kb = _make_kb(tmp_path)
     (kb / "output" / "skills" / "demo").mkdir(parents=True)
     runner = CliRunner()
-    with patch("openkb.cli._find_kb_dir", return_value=kb):
+    with patch("okforge.cli._find_kb_dir", return_value=kb):
         # Simulate non-interactive abort (CliRunner doesn't supply a TTY,
         # which our error path treats as "must pass -y").
         result = runner.invoke(cli, ["skill", "new", "demo", "x"], input="n\n")
@@ -126,8 +126,8 @@ def test_skill_new_overwrites_with_yes_flag(tmp_path):
         _fake_compile(kb_dir, skill_name)
 
     with (
-        patch("openkb.cli._find_kb_dir", return_value=kb),
-        patch("openkb.skill.generator.run_skill_create", new=AsyncMock(side_effect=fake_run)),
+        patch("okforge.cli._find_kb_dir", return_value=kb),
+        patch("okforge.skill.generator.run_skill_create", new=AsyncMock(side_effect=fake_run)),
     ):
         result = runner.invoke(cli, ["skill", "new", "demo", "x", "-y"])
 
@@ -152,8 +152,8 @@ def test_skill_new_saves_iteration_when_overwriting(tmp_path):
         _fake_compile(kb_dir, skill_name)
 
     with (
-        patch("openkb.cli._find_kb_dir", return_value=kb),
-        patch("openkb.skill.generator.run_skill_create", new=AsyncMock(side_effect=fake_run)),
+        patch("okforge.cli._find_kb_dir", return_value=kb),
+        patch("okforge.skill.generator.run_skill_create", new=AsyncMock(side_effect=fake_run)),
     ):
         result = runner.invoke(cli, ["skill", "new", "demo", "x", "-y"])
 
@@ -167,7 +167,7 @@ def test_skill_new_saves_iteration_when_overwriting(tmp_path):
 
 
 def test_skill_history_command_lists_iterations(tmp_path):
-    """`openkb skill history <name>` lists existing iteration directories."""
+    """`okforge skill history <name>` lists existing iteration directories."""
     kb = _make_kb(tmp_path)
     ws = kb / "output" / "skills" / "demo-workspace"
     (ws / "iteration-1").mkdir(parents=True)
@@ -176,7 +176,7 @@ def test_skill_history_command_lists_iterations(tmp_path):
     (ws / "iteration-2" / "SKILL.md").write_text("---\nname: demo\ndescription: v2\n---\n")
 
     runner = CliRunner()
-    with patch("openkb.cli._find_kb_dir", return_value=kb):
+    with patch("okforge.cli._find_kb_dir", return_value=kb):
         result = runner.invoke(cli, ["skill", "history", "demo"])
 
     assert result.exit_code == 0, result.output
@@ -187,14 +187,14 @@ def test_skill_history_command_lists_iterations(tmp_path):
 def test_skill_history_command_when_no_iterations(tmp_path):
     kb = _make_kb(tmp_path)
     runner = CliRunner()
-    with patch("openkb.cli._find_kb_dir", return_value=kb):
+    with patch("okforge.cli._find_kb_dir", return_value=kb):
         result = runner.invoke(cli, ["skill", "history", "demo"])
     assert result.exit_code == 0, result.output
     assert "No previous iterations" in result.output
 
 
 def test_skill_rollback_restores_from_workspace(tmp_path):
-    """`openkb skill rollback <name>` copies the latest iteration back
+    """`okforge skill rollback <name>` copies the latest iteration back
     into output/skills/<name>/."""
     kb = _make_kb(tmp_path)
     ws = kb / "output" / "skills" / "demo-workspace"
@@ -208,7 +208,7 @@ def test_skill_rollback_restores_from_workspace(tmp_path):
     (current / "SKILL.md").write_text("---\nname: demo\ndescription: broken\n---\n")
 
     runner = CliRunner()
-    with patch("openkb.cli._find_kb_dir", return_value=kb):
+    with patch("okforge.cli._find_kb_dir", return_value=kb):
         result = runner.invoke(cli, ["skill", "rollback", "demo", "-y"])
 
     assert result.exit_code == 0, result.output
@@ -231,7 +231,7 @@ def test_skill_rollback_to_specific_iteration(tmp_path):
     (current / "SKILL.md").write_text("placeholder")
 
     runner = CliRunner()
-    with patch("openkb.cli._find_kb_dir", return_value=kb):
+    with patch("okforge.cli._find_kb_dir", return_value=kb):
         result = runner.invoke(cli, ["skill", "rollback", "demo", "--to", "1", "-y"])
 
     assert result.exit_code == 0, result.output
@@ -241,14 +241,14 @@ def test_skill_rollback_to_specific_iteration(tmp_path):
 def test_skill_rollback_errors_when_no_iterations(tmp_path):
     kb = _make_kb(tmp_path)
     runner = CliRunner()
-    with patch("openkb.cli._find_kb_dir", return_value=kb):
+    with patch("okforge.cli._find_kb_dir", return_value=kb):
         result = runner.invoke(cli, ["skill", "rollback", "demo", "-y"])
     assert result.exit_code != 0
     assert "No iterations" in result.output
 
 
 def test_skill_validate_passes_on_valid_skill(tmp_path):
-    """`openkb skill validate <name>` exits 0 and prints OK for a well-formed skill."""
+    """`okforge skill validate <name>` exits 0 and prints OK for a well-formed skill."""
     kb = _make_kb(tmp_path)
     target = kb / "output" / "skills" / "demo"
     target.mkdir(parents=True)
@@ -259,7 +259,7 @@ def test_skill_validate_passes_on_valid_skill(tmp_path):
     )
 
     runner = CliRunner()
-    with patch("openkb.cli._find_kb_dir", return_value=kb):
+    with patch("okforge.cli._find_kb_dir", return_value=kb):
         result = runner.invoke(cli, ["skill", "validate", "demo"])
 
     assert result.exit_code == 0, result.output
@@ -268,7 +268,7 @@ def test_skill_validate_passes_on_valid_skill(tmp_path):
 
 
 def test_skill_validate_fails_on_invalid_frontmatter(tmp_path):
-    """`openkb skill validate <name>` exits non-zero on malformed YAML."""
+    """`okforge skill validate <name>` exits non-zero on malformed YAML."""
     kb = _make_kb(tmp_path)
     target = kb / "output" / "skills" / "broken"
     target.mkdir(parents=True)
@@ -276,7 +276,7 @@ def test_skill_validate_fails_on_invalid_frontmatter(tmp_path):
     (target / "SKILL.md").write_text("# just a body, no frontmatter\n")
 
     runner = CliRunner()
-    with patch("openkb.cli._find_kb_dir", return_value=kb):
+    with patch("okforge.cli._find_kb_dir", return_value=kb):
         result = runner.invoke(cli, ["skill", "validate", "broken"])
 
     assert result.exit_code != 0, result.output
@@ -294,8 +294,8 @@ def test_skill_new_keeps_existing_skill_when_key_setup_fails(tmp_path):
 
     runner = CliRunner()
     with (
-        patch("openkb.cli._find_kb_dir", return_value=kb),
-        patch("openkb.cli._setup_llm_key", side_effect=RuntimeError("no API key configured")),
+        patch("okforge.cli._find_kb_dir", return_value=kb),
+        patch("okforge.cli._setup_llm_key", side_effect=RuntimeError("no API key configured")),
     ):
         result = runner.invoke(cli, ["skill", "new", "demo", "x", "-y"])
 
@@ -305,7 +305,7 @@ def test_skill_new_keeps_existing_skill_when_key_setup_fails(tmp_path):
 
 
 # --------------------------------------------------------------------------
-# `openkb skill eval` — trigger-accuracy evaluator
+# `okforge skill eval` — trigger-accuracy evaluator
 # --------------------------------------------------------------------------
 
 
@@ -326,7 +326,7 @@ def test_skill_eval_runs_with_provided_eval_set(tmp_path):
     _make_skill_dir(kb, "demo")
 
     # Save an eval set we can point --eval-set at.
-    eval_dir = kb / ".openkb" / "eval-sets"
+    eval_dir = kb / ".okforge" / "eval-sets"
     eval_dir.mkdir(parents=True)
     eval_path = eval_dir / "demo.json"
     eval_path.write_text(
@@ -346,10 +346,10 @@ def test_skill_eval_runs_with_provided_eval_set(tmp_path):
 
     runner = CliRunner()
     with (
-        patch("openkb.cli._find_kb_dir", return_value=kb),
-        patch("openkb.cli._setup_llm_key", return_value=None),
-        patch("openkb.skill.evaluator.grade_one", side_effect=perfect_grader),
-        patch("openkb.skill.evaluator.grade_coverage", side_effect=perfect_coverage),
+        patch("okforge.cli._find_kb_dir", return_value=kb),
+        patch("okforge.cli._setup_llm_key", return_value=None),
+        patch("okforge.skill.evaluator.grade_one", side_effect=perfect_grader),
+        patch("okforge.skill.evaluator.grade_coverage", side_effect=perfect_coverage),
     ):
         result = runner.invoke(
             cli,
@@ -374,7 +374,7 @@ def test_skill_eval_reports_misses(tmp_path):
     kb = _make_kb(tmp_path)
     _make_skill_dir(kb, "demo")
 
-    eval_dir = kb / ".openkb" / "eval-sets"
+    eval_dir = kb / ".okforge" / "eval-sets"
     eval_dir.mkdir(parents=True)
     eval_path = eval_dir / "demo.json"
     eval_path.write_text(
@@ -394,10 +394,10 @@ def test_skill_eval_reports_misses(tmp_path):
 
     runner = CliRunner()
     with (
-        patch("openkb.cli._find_kb_dir", return_value=kb),
-        patch("openkb.cli._setup_llm_key", return_value=None),
-        patch("openkb.skill.evaluator.grade_one", side_effect=biased_grader),
-        patch("openkb.skill.evaluator.grade_coverage", side_effect=perfect_coverage),
+        patch("okforge.cli._find_kb_dir", return_value=kb),
+        patch("okforge.cli._setup_llm_key", return_value=None),
+        patch("okforge.skill.evaluator.grade_one", side_effect=biased_grader),
+        patch("okforge.skill.evaluator.grade_coverage", side_effect=perfect_coverage),
     ):
         result = runner.invoke(
             cli,

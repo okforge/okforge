@@ -1,4 +1,4 @@
-"""Tests for openkb.agent.compiler pipeline."""
+"""Tests for okforge.agent.compiler pipeline."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from openkb import frontmatter as frontmatter_mod
-from openkb.agent.compiler import (
+from okforge import frontmatter as frontmatter_mod
+from okforge.agent.compiler import (
     _ENTITY_TYPE_LIST,
     _add_related_link,
     _backlink_concepts,
@@ -33,8 +33,8 @@ from openkb.agent.compiler import (
     compile_short_doc,
     remove_doc_from_entity_pages,
 )
-from openkb.config import resolve_entity_types
-from openkb.schema import AGENTS_MD
+from okforge.config import resolve_entity_types
+from okforge.schema import AGENTS_MD
 
 
 class TestFrontmatterSourceMutation:
@@ -1161,7 +1161,7 @@ class TestCompileShortDoc:
         )
         source_path = wiki / "sources" / "test-doc.md"
         source_path.write_text("# Test Doc\n\nSome content about transformers.", encoding="utf-8")
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".okforge").mkdir()
         (tmp_path / "raw").mkdir()
         (tmp_path / "raw" / "test-doc.pdf").write_bytes(b"fake")
 
@@ -1187,7 +1187,7 @@ class TestCompileShortDoc:
             }
         )
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion(
                     [
@@ -1232,9 +1232,9 @@ class TestCompileShortDoc:
         )
         source_path = wiki / "sources" / "doc.md"
         source_path.write_text("Content", encoding="utf-8")
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".okforge").mkdir()
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion(["Plain summary text", "not valid json"])
             )
@@ -1264,9 +1264,9 @@ class TestCompileShortDoc:
             {"page": 4, "content": "Text of page four.", "images": []},
         ]
         (wiki / "sources" / "doc.json").write_text(json.dumps(pages), encoding="utf-8")
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".okforge").mkdir()
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion(["Plain summary text", "not valid json"])
             )
@@ -1291,9 +1291,9 @@ class TestCompileShortDoc:
         source_path = wiki / "sources" / "doc.md"
         source_path.write_text("Flat text without page info", encoding="utf-8")
         (wiki / "sources" / "doc.json").write_text("{not json", encoding="utf-8")
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".okforge").mkdir()
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion(["Plain summary text", "not valid json"])
             )
@@ -1325,7 +1325,7 @@ class TestCompileShortDocFallbacks:
             "# Index\n\n## Documents\n\n## Concepts\n\n## Explorations\n",
             encoding="utf-8",
         )
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".okforge").mkdir()
         source_path = wiki / "sources" / "doc.md"
         source_path.write_text("Body.", encoding="utf-8")
         return wiki, source_path
@@ -1354,7 +1354,7 @@ class TestCompileShortDocFallbacks:
         rewrite_response = ""
         concept_response = json.dumps({"brief": "C", "content": "# T\n\nBody."})
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion(
                     [
@@ -1414,7 +1414,7 @@ class TestCompileShortDocFallbacks:
             mock_resp.usage.prompt_tokens_details = None
             return mock_resp
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(side_effect=sync_side_effect)
             mock_litellm.acompletion = AsyncMock(side_effect=_mock_acompletion([concept_response]))
             # Must NOT raise out of compile_short_doc
@@ -1440,7 +1440,7 @@ class TestCompileShortDocFallbacks:
         # Plan call returns non-JSON garbage → triggers early return
         plan_response = "not valid json at all"
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion([summary_response, plan_response])
             )
@@ -1473,7 +1473,7 @@ class TestCompileShortDocFallbacks:
             }
         )
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion([summary_response, empty_plan_response])
             )
@@ -1501,7 +1501,7 @@ class TestCompileShortDocFallbacks:
         # Plan call returns a bare JSON scalar (an integer).
         scalar_plan_response = "42"
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion([summary_response, scalar_plan_response])
             )
@@ -1543,7 +1543,7 @@ class TestCacheControl:
         )
         src = wiki / "sources" / "doc.md"
         src.write_text("Body text about caching.", encoding="utf-8")
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".okforge").mkdir()
 
         summary_response = json.dumps({"brief": "B", "content": "summary body"})
         plan_response = json.dumps(
@@ -1585,7 +1585,7 @@ class TestCacheControl:
             mock_resp.usage.prompt_tokens_details = None
             return mock_resp
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(side_effect=sync_side_effect)
             mock_litellm.acompletion = AsyncMock(side_effect=async_side_effect)
             await compile_short_doc("doc", src, tmp_path, "anthropic/claude-sonnet-4-5")
@@ -1641,7 +1641,7 @@ class TestCacheControl:
         )
         sp = wiki / "summaries" / "big.md"
         sp.write_text("PageIndex tree summary.", encoding="utf-8")
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".okforge").mkdir()
 
         captured: list[list[dict]] = []
         plan_response = json.dumps({"create": [], "update": [], "related": []})
@@ -1658,7 +1658,7 @@ class TestCacheControl:
             mock_resp.usage.prompt_tokens_details = None
             return mock_resp
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(side_effect=sync_side_effect)
             mock_litellm.acompletion = AsyncMock()
             await compile_long_doc(
@@ -1686,7 +1686,7 @@ class TestCompileLongDoc:
         )
         summary_path = wiki / "summaries" / "big-doc.md"
         summary_path.write_text("# Big Doc\n\nPageIndex summary tree.", encoding="utf-8")
-        openkb_dir = tmp_path / ".openkb"
+        openkb_dir = tmp_path / ".okforge"
         openkb_dir.mkdir()
         (openkb_dir / "config.yaml").write_text("model: gpt-4o-mini\n")
         (tmp_path / "raw").mkdir()
@@ -1707,7 +1707,7 @@ class TestCompileLongDoc:
             }
         )
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion([overview_response, concepts_list_response])
             )
@@ -1799,7 +1799,7 @@ class TestCompileConceptsPlan:
             mock_resp.usage.prompt_tokens_details = None
             return mock_resp
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(side_effect=_mock_completion([plan_response]))
             mock_litellm.acompletion = AsyncMock(side_effect=ordered_acompletion)
             await _compile_concepts(
@@ -1835,7 +1835,7 @@ class TestCompileConceptsPlan:
     def test_parse_page_json_unwraps_and_guards_shape(self):
         """#158: _parse_page_json returns an object, unwraps a single-element
         ``[{...}]`` array, and returns None for wrong-shaped-but-valid JSON."""
-        from openkb.agent.compiler import _parse_page_json
+        from okforge.agent.compiler import _parse_page_json
 
         assert _parse_page_json('{"content": "x"}') == {"content": "x"}
         assert _parse_page_json('[{"content": "x"}]') == {"content": "x"}  # unwrapped
@@ -1852,7 +1852,7 @@ class TestCompileConceptsPlan:
             {"create": [{"name": "attention", "title": "Attention"}], "update": [], "related": []}
         )
         array_page = json.dumps([{"brief": "b", "content": "# Attention\n\nRecovered body."}])
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(side_effect=_mock_completion([plan_response]))
             mock_litellm.acompletion = AsyncMock(side_effect=_mock_acompletion([array_page]))
             await _compile_concepts(
@@ -1893,7 +1893,7 @@ class TestCompileConceptsPlan:
             mock_resp.usage.prompt_tokens_details = None
             return mock_resp
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(side_effect=_mock_completion([plan_response]))
             mock_litellm.acompletion = AsyncMock(side_effect=truncated_acompletion)
             await _compile_concepts(
@@ -1929,7 +1929,7 @@ class TestCompileConceptsPlan:
             mock_resp.usage.prompt_tokens_details = None
             return mock_resp
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(side_effect=_mock_completion([plan_response]))
             mock_litellm.acompletion = AsyncMock(side_effect=truncated_acompletion)
             await _compile_concepts(
@@ -1948,7 +1948,7 @@ class TestCompileConceptsPlan:
         """Shared mapping used by all four page closures: object, single-element
         array unwrap, wrong-shape skip (empty content), and non-JSON prose
         fallback (raw written as the body)."""
-        from openkb.agent.compiler import _page_fields
+        from okforge.agent.compiler import _page_fields
 
         brief, content, obj = _page_fields('{"description": "d", "content": "c", "type": "org"}')
         assert (brief, content) == ("d", "c")
@@ -1998,7 +1998,7 @@ class TestCompileConceptsPlan:
             mock_resp.usage.prompt_tokens_details = None
             return mock_resp
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(side_effect=_mock_completion([plan_response]))
             mock_litellm.acompletion = AsyncMock(side_effect=truncated_acompletion)
             await _compile_concepts(
@@ -2034,7 +2034,7 @@ class TestCompileConceptsPlan:
         system_msg = {"role": "system", "content": "You are a wiki agent."}
         doc_msg = {"role": "user", "content": "Document content."}
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(side_effect=_mock_completion([plan_response]))
             mock_litellm.acompletion = AsyncMock(
                 side_effect=_mock_completion([empty_content_response])
@@ -2081,7 +2081,7 @@ class TestCompileConceptsPlan:
         doc_msg = {"role": "user", "content": "Document content."}
         summary = "Summary."
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(side_effect=_mock_completion([plan_response]))
             mock_litellm.acompletion = AsyncMock()
             await _compile_concepts(
@@ -2123,7 +2123,7 @@ class TestCompileConceptsPlan:
         doc_msg = {"role": "user", "content": "Document content."}
         summary = "Summary."
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(side_effect=_mock_completion([plan_response]))
             mock_litellm.acompletion = AsyncMock(
                 side_effect=_mock_acompletion([concept_page_response])
@@ -2160,7 +2160,7 @@ class TestBriefIntegration:
         )
         source_path = wiki / "sources" / "test-doc.md"
         source_path.write_text("# Test Doc\n\nContent.", encoding="utf-8")
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".okforge").mkdir()
         (tmp_path / "raw").mkdir()
         (tmp_path / "raw" / "test-doc.pdf").write_bytes(b"fake")
 
@@ -2184,7 +2184,7 @@ class TestBriefIntegration:
             }
         )
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion([summary_resp, plan_resp])
             )
@@ -2349,10 +2349,10 @@ class TestCompileEntitiesEndToEnd:
         async def fake_llm_async(model, messages, label, **kw):
             return fake_llm(model, messages, label, **kw)
 
-        monkeypatch.setattr("openkb.agent.compiler._llm_call", fake_llm)
-        monkeypatch.setattr("openkb.agent.compiler._llm_call_async", fake_llm_async)
+        monkeypatch.setattr("okforge.agent.compiler._llm_call", fake_llm)
+        monkeypatch.setattr("okforge.agent.compiler._llm_call_async", fake_llm_async)
 
-        from openkb.agent.compiler import _compile_concepts
+        from okforge.agent.compiler import _compile_concepts
 
         sys_msg = {"role": "system", "content": "x"}
         doc_msg = {"role": "user", "content": "x"}
@@ -2417,10 +2417,10 @@ class TestCompileEntitiesEndToEnd:
         async def fake_llm_async(model, messages, label, **kw):
             return fake_llm(model, messages, label, **kw)
 
-        monkeypatch.setattr("openkb.agent.compiler._llm_call", fake_llm)
-        monkeypatch.setattr("openkb.agent.compiler._llm_call_async", fake_llm_async)
+        monkeypatch.setattr("okforge.agent.compiler._llm_call", fake_llm)
+        monkeypatch.setattr("okforge.agent.compiler._llm_call_async", fake_llm_async)
 
-        from openkb.agent.compiler import _compile_concepts
+        from okforge.agent.compiler import _compile_concepts
 
         sys_msg = {"role": "system", "content": "x"}
         doc_msg = {"role": "user", "content": "x"}
@@ -2479,10 +2479,10 @@ class TestCompileEntitiesEndToEnd:
         async def fake_llm_async(model, messages, label, **kw):
             return fake_llm(model, messages, label, **kw)
 
-        monkeypatch.setattr("openkb.agent.compiler._llm_call", fake_llm)
-        monkeypatch.setattr("openkb.agent.compiler._llm_call_async", fake_llm_async)
+        monkeypatch.setattr("okforge.agent.compiler._llm_call", fake_llm)
+        monkeypatch.setattr("okforge.agent.compiler._llm_call_async", fake_llm_async)
 
-        from openkb.agent.compiler import _compile_concepts
+        from okforge.agent.compiler import _compile_concepts
 
         await _compile_concepts(
             wiki,
@@ -2541,10 +2541,10 @@ class TestCompileEntitiesEndToEnd:
             seen_messages.append((label, messages))
             return fake_llm(model, messages, label, **kw)
 
-        monkeypatch.setattr("openkb.agent.compiler._llm_call", fake_llm)
-        monkeypatch.setattr("openkb.agent.compiler._llm_call_async", fake_llm_async)
+        monkeypatch.setattr("okforge.agent.compiler._llm_call", fake_llm)
+        monkeypatch.setattr("okforge.agent.compiler._llm_call_async", fake_llm_async)
 
-        from openkb.agent.compiler import _compile_concepts
+        from okforge.agent.compiler import _compile_concepts
 
         sys_msg = {"role": "system", "content": "x"}
         doc_msg = {"role": "user", "content": "x"}
@@ -2593,10 +2593,10 @@ class TestCompileEntitiesEndToEnd:
         async def fake_llm_async(model, messages, label, **kw):
             return fake_llm(model, messages, label, **kw)
 
-        monkeypatch.setattr("openkb.agent.compiler._llm_call", fake_llm)
-        monkeypatch.setattr("openkb.agent.compiler._llm_call_async", fake_llm_async)
+        monkeypatch.setattr("okforge.agent.compiler._llm_call", fake_llm)
+        monkeypatch.setattr("okforge.agent.compiler._llm_call_async", fake_llm_async)
 
-        from openkb.agent.compiler import _compile_concepts
+        from okforge.agent.compiler import _compile_concepts
 
         # entity_types deliberately contains brace chars to exercise the
         # format/replace ordering — this must NOT raise KeyError/ValueError.
@@ -2639,10 +2639,10 @@ class TestCompileEntitiesEndToEnd:
             seen_messages.append((label, messages))
             return fake_llm(model, messages, label, **kw)
 
-        monkeypatch.setattr("openkb.agent.compiler._llm_call", fake_llm)
-        monkeypatch.setattr("openkb.agent.compiler._llm_call_async", fake_llm_async)
+        monkeypatch.setattr("okforge.agent.compiler._llm_call", fake_llm)
+        monkeypatch.setattr("okforge.agent.compiler._llm_call_async", fake_llm_async)
 
-        from openkb.agent.compiler import _compile_concepts
+        from okforge.agent.compiler import _compile_concepts
 
         await _compile_concepts(
             wiki,
@@ -2681,9 +2681,9 @@ def test_ensure_h2_section_quiet_suppresses_drift_warning(caplog):
     must not emit the 'hand-edited' drift warning; default still warns."""
     import logging
 
-    from openkb.agent.compiler import _ensure_h2_section
+    from okforge.agent.compiler import _ensure_h2_section
 
-    with caplog.at_level(logging.WARNING, logger="openkb.agent.compiler"):
+    with caplog.at_level(logging.WARNING, logger="okforge.agent.compiler"):
         lines = ["# Doc", ""]
         _ensure_h2_section(lines, "## Entities", quiet=True)
         assert "## Entities" in lines
@@ -2697,7 +2697,7 @@ def test_known_targets_prompt_has_entities_rule():
     """The whitelist message must tell the LLM the [[entities/X]] rule, since
     entity-page prompts instruct writing such links; otherwise entity links
     are generated freely and then stripped as ghosts."""
-    from openkb.agent.compiler import _KNOWN_TARGETS_USER
+    from okforge.agent.compiler import _KNOWN_TARGETS_USER
 
     assert "[[entities/" in _KNOWN_TARGETS_USER
 
@@ -2705,7 +2705,7 @@ def test_known_targets_prompt_has_entities_rule():
 def test_plan_prompt_keeps_topic_itself_guard():
     """The concept-plan prompt must retain the guard against creating a concept
     that merely mirrors the document's own topic."""
-    from openkb.agent.compiler import _CONCEPTS_PLAN_USER
+    from okforge.agent.compiler import _CONCEPTS_PLAN_USER
 
     assert "just the document topic itself" in _CONCEPTS_PLAN_USER
 
@@ -2714,11 +2714,11 @@ class TestLLMCallExtraHeaders:
     """Config-driven extra headers reach the litellm calls (issue #93)."""
 
     def test_llm_call_injects_extra_headers(self):
-        from openkb.agent.compiler import _llm_call
-        from openkb.config import set_extra_headers
+        from okforge.agent.compiler import _llm_call
+        from okforge.config import set_extra_headers
 
         set_extra_headers({"Editor-Version": "vscode/1.95.0"})
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(side_effect=_mock_completion(["ok"]))
             out = _llm_call("m", [{"role": "user", "content": "hi"}], "step")
         assert out == "ok"
@@ -2726,19 +2726,19 @@ class TestLLMCallExtraHeaders:
         assert kwargs["extra_headers"] == {"Editor-Version": "vscode/1.95.0"}
 
     def test_llm_call_no_extra_headers_by_default(self):
-        from openkb.agent.compiler import _llm_call
+        from okforge.agent.compiler import _llm_call
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(side_effect=_mock_completion(["ok"]))
             _llm_call("m", [{"role": "user", "content": "hi"}], "step")
         assert "extra_headers" not in mock_litellm.completion.call_args.kwargs
 
     def test_llm_call_explicit_kwarg_wins_over_config(self):
-        from openkb.agent.compiler import _llm_call
-        from openkb.config import set_extra_headers
+        from okforge.agent.compiler import _llm_call
+        from okforge.config import set_extra_headers
 
         set_extra_headers({"Editor-Version": "from-config"})
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(side_effect=_mock_completion(["ok"]))
             _llm_call(
                 "m",
@@ -2751,11 +2751,11 @@ class TestLLMCallExtraHeaders:
 
     @pytest.mark.asyncio
     async def test_llm_call_async_injects_extra_headers(self):
-        from openkb.agent.compiler import _llm_call_async
-        from openkb.config import set_extra_headers
+        from okforge.agent.compiler import _llm_call_async
+        from okforge.config import set_extra_headers
 
         set_extra_headers({"Copilot-Integration-Id": "vscode-chat"})
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
             mock_litellm.acompletion = AsyncMock(side_effect=_mock_acompletion(["ok"]))
             out = await _llm_call_async("m", [{"role": "user", "content": "hi"}], "step")
         assert out == "ok"
@@ -2774,7 +2774,7 @@ class TestCacheControlStripping:
     """
 
     def test_accepts_for_anthropic_providers(self):
-        from openkb.agent.compiler import _accepts_cache_control
+        from okforge.agent.compiler import _accepts_cache_control
 
         assert _accepts_cache_control("anthropic/claude-sonnet-4-6")
         assert _accepts_cache_control("claude-opus-4-6")
@@ -2782,13 +2782,13 @@ class TestCacheControlStripping:
         assert _accepts_cache_control("openrouter/anthropic/claude-3.5-sonnet")
 
     def test_rejects_for_non_anthropic_providers(self):
-        from openkb.agent.compiler import _accepts_cache_control
+        from okforge.agent.compiler import _accepts_cache_control
 
         assert not _accepts_cache_control("gemini/gemini-2.5-pro")
         assert not _accepts_cache_control("gpt-4o")
 
     def test_strip_removes_marker_without_mutating_input(self):
-        from openkb.agent.compiler import _cached_text, _strip_cache_control
+        from okforge.agent.compiler import _cached_text, _strip_cache_control
 
         messages = [
             {"role": "system", "content": "plain string stays"},
@@ -2803,10 +2803,10 @@ class TestCacheControlStripping:
         assert "cache_control" in messages[1]["content"][0]
 
     def test_llm_call_strips_marker_for_gemini(self):
-        from openkb.agent.compiler import _cached_text, _llm_call
+        from okforge.agent.compiler import _cached_text, _llm_call
 
         with patch(
-            "openkb.agent.compiler.litellm.completion",
+            "okforge.agent.compiler.litellm.completion",
             MagicMock(side_effect=_mock_completion(["ok"])),
         ) as mock_completion:
             _llm_call(
@@ -2818,10 +2818,10 @@ class TestCacheControlStripping:
         assert block["text"] == "doc"
 
     def test_llm_call_keeps_marker_for_anthropic(self):
-        from openkb.agent.compiler import _cached_text, _llm_call
+        from okforge.agent.compiler import _cached_text, _llm_call
 
         with patch(
-            "openkb.agent.compiler.litellm.completion",
+            "okforge.agent.compiler.litellm.completion",
             MagicMock(side_effect=_mock_completion(["ok"])),
         ) as mock_completion:
             _llm_call(
@@ -2942,7 +2942,7 @@ class TestMarkdownLinkEmission:
         wiki = tmp_path / "wiki"
         for sub in ("summaries", "concepts", "entities"):
             (wiki / sub).mkdir(parents=True)
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".okforge").mkdir()
         return wiki
 
     def test_summary_wikilinks_become_relative_md_links(self, tmp_path):
@@ -2954,7 +2954,7 @@ class TestMarkdownLinkEmission:
 
     def test_wikilinks_style_opt_out(self, tmp_path):
         wiki = self._kb(tmp_path)
-        (tmp_path / ".openkb" / "config.yaml").write_text("link_style: wikilinks\n")
+        (tmp_path / ".okforge" / "config.yaml").write_text("link_style: wikilinks\n")
         _write_summary(wiki, "doc", "See [[concepts/attention]].", doc_type="short")
         text = (wiki / "summaries" / "doc.md").read_text(encoding="utf-8")
         assert "[[concepts/attention]]" in text

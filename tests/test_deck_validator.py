@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from openkb.deck.validator import (
+from okforge.deck.validator import (
     ALLOWED_DATA_TYPES,
     EDITORIAL_MONOCLE_GRAMMAR,
     ValidationResult,
@@ -221,7 +221,7 @@ def test_oversize_file_warning(tmp_path: Path, monkeypatch):
     # Lower the size threshold so we don't actually allocate 2MB to
     # trigger the warning branch.
     monkeypatch.setattr(
-        "openkb.deck.validator.MAX_FILE_BYTES",
+        "okforge.deck.validator.MAX_FILE_BYTES",
         100,  # threshold 100 bytes for the test
     )
     result = validate_deck(_write(tmp_path, GOOD_DECK))

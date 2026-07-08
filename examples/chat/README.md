@@ -30,7 +30,7 @@ as rich Markdown (headings, tables, code) in a terminal.
 
 ## Persistent sessions
 
-Every conversation is stored as JSON in `<kb>/.openkb/chats/`. Manage them with:
+Every conversation is stored as JSON in `<kb>/.okforge/chats/`. Manage them with:
 
 ```bash
 openkb chat --list              # table of sessions: id · turns · updated · title

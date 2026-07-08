@@ -1,4 +1,4 @@
-"""Cross-platform behaviour for openkb.locks / openkb.config.
+"""Cross-platform behaviour for okforge.locks / okforge.config.
 
 File locking is delegated to :mod:`portalocker` (fcntl on POSIX, msvcrt/Win32
 on Windows), so okforge no longer hard-imports the Unix-only ``fcntl``. The
@@ -15,7 +15,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from openkb import locks
+from okforge import locks
 
 
 def _module_level_imports_fcntl(path: Path) -> bool:
@@ -31,7 +31,7 @@ def _module_level_imports_fcntl(path: Path) -> bool:
 
 def test_openkb_modules_do_not_hard_import_fcntl():
     """Guards issue #93: okforge's own modules must import on Windows (no bare fcntl)."""
-    pkg_dir = Path(locks.__file__).parent  # locks.py lives in the openkb package
+    pkg_dir = Path(locks.__file__).parent  # locks.py lives in the okforge package
     offenders = [
         str(py.relative_to(pkg_dir))
         for py in pkg_dir.rglob("*.py")

@@ -1,10 +1,10 @@
-"""Tests for openkb.indexer."""
+"""Tests for okforge.indexer."""
 
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from openkb.indexer import IndexResult, _normalize_page_content, index_long_document
+from okforge.indexer import IndexResult, _normalize_page_content, index_long_document
 
 
 class TestNormalizePageContent:
@@ -78,8 +78,8 @@ class TestIndexLongDocument:
         pdf_path.write_bytes(b"%PDF-1.4 fake")
 
         with (
-            patch("openkb.indexer.PageIndexClient", return_value=fake_client),
-            patch("openkb.images.convert_pdf_to_pages", return_value=self._fake_pages()),
+            patch("okforge.indexer.PageIndexClient", return_value=fake_client),
+            patch("okforge.images.convert_pdf_to_pages", return_value=self._fake_pages()),
         ):
             result = index_long_document(pdf_path, kb_dir)
 
@@ -107,8 +107,8 @@ class TestIndexLongDocument:
         pdf_path.write_bytes(b"%PDF-1.4 fake")
 
         with (
-            patch("openkb.indexer.PageIndexClient", return_value=fake_client),
-            patch("openkb.images.convert_pdf_to_pages", return_value=self._fake_pages()),
+            patch("okforge.indexer.PageIndexClient", return_value=fake_client),
+            patch("okforge.images.convert_pdf_to_pages", return_value=self._fake_pages()),
         ):
             index_long_document(pdf_path, kb_dir)
 
@@ -131,8 +131,8 @@ class TestIndexLongDocument:
         pdf_path.write_bytes(b"%PDF-1.4 fake")
 
         with (
-            patch("openkb.indexer.PageIndexClient", return_value=fake_client),
-            patch("openkb.images.convert_pdf_to_pages", return_value=self._fake_pages()),
+            patch("okforge.indexer.PageIndexClient", return_value=fake_client),
+            patch("okforge.images.convert_pdf_to_pages", return_value=self._fake_pages()),
         ):
             index_long_document(pdf_path, kb_dir)
 
@@ -154,8 +154,8 @@ class TestIndexLongDocument:
         pdf_path.write_bytes(b"%PDF-1.4 fake")
 
         with (
-            patch("openkb.indexer.PageIndexClient", return_value=fake_client) as mock_cls,
-            patch("openkb.images.convert_pdf_to_pages", return_value=self._fake_pages()),
+            patch("okforge.indexer.PageIndexClient", return_value=fake_client) as mock_cls,
+            patch("okforge.images.convert_pdf_to_pages", return_value=self._fake_pages()),
         ):
             index_long_document(pdf_path, kb_dir)
 
@@ -182,8 +182,8 @@ class TestIndexLongDocument:
         pdf_path.write_bytes(b"%PDF-1.4 fake")
 
         with (
-            patch("openkb.indexer.PageIndexClient", return_value=fake_client) as mock_cls,
-            patch("openkb.images.convert_pdf_to_pages", return_value=self._fake_pages()),
+            patch("okforge.indexer.PageIndexClient", return_value=fake_client) as mock_cls,
+            patch("okforge.images.convert_pdf_to_pages", return_value=self._fake_pages()),
         ):
             index_long_document(pdf_path, kb_dir)
 
@@ -201,8 +201,8 @@ class TestIndexLongDocument:
         pdf_path.write_bytes(b"%PDF-1.4 fake")
 
         with (
-            patch("openkb.indexer.PageIndexClient", return_value=fake_client),
-            patch("openkb.indexer._convert_pdf_to_pages", return_value=[]),
+            patch("okforge.indexer.PageIndexClient", return_value=fake_client),
+            patch("okforge.indexer._convert_pdf_to_pages", return_value=[]),
         ):
             try:
                 index_long_document(pdf_path, kb_dir)
@@ -227,9 +227,9 @@ def test_index_long_document_uses_explicit_doc_name(kb_dir):
     pdf.write_bytes(b"%PDF-1.4 fake")
 
     with (
-        patch("openkb.indexer.PageIndexClient", return_value=fake_client),
+        patch("okforge.indexer.PageIndexClient", return_value=fake_client),
         patch(
-            "openkb.indexer._convert_pdf_to_pages", return_value=[{"page": 1, "text": "p1"}]
+            "okforge.indexer._convert_pdf_to_pages", return_value=[{"page": 1, "text": "p1"}]
         ) as mock_convert,
     ):
         result = index_long_document(pdf, kb_dir, doc_name="original-abc12345")
@@ -251,7 +251,7 @@ def test_index_long_document_uses_explicit_doc_name(kb_dir):
 
 
 def test_write_long_doc_artifacts_writes_json_and_summary(kb_dir, sample_tree):
-    from openkb.indexer import _write_long_doc_artifacts
+    from okforge.indexer import _write_long_doc_artifacts
 
     pages = [{"page": 1, "content": "Hello.", "images": []}]
     summary_path = _write_long_doc_artifacts(sample_tree, pages, "my-doc", "doc-1", kb_dir)
@@ -268,7 +268,7 @@ def test_write_long_doc_artifacts_embeds_page_images_in_summary(kb_dir, sample_t
     # sample_tree's "Introduction" node spans pages 0-120; a page in that
     # range should have its image embedded in the written summary, not just
     # referenced from the sibling wiki/sources/<doc>.json file.
-    from openkb.indexer import _write_long_doc_artifacts
+    from okforge.indexer import _write_long_doc_artifacts
 
     pages = [{"page": 5, "content": "...", "images": [{"path": "sources/images/my-doc/p5.png"}]}]
     summary_path = _write_long_doc_artifacts(sample_tree, pages, "my-doc", "doc-1", kb_dir)

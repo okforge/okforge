@@ -1,4 +1,4 @@
-"""Tests for openkb.skill.generator.Generator — the v0.1 abstraction that will
+"""Tests for okforge.skill.generator.Generator — the v0.1 abstraction that will
 be reused by future ppt / podcast generators.
 
 In v0.1, only target_type='skill' is supported. We test the dispatch shape
@@ -10,13 +10,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from openkb.deck.validator import ValidationResult as DeckValidationResult
-from openkb.skill.generator import Generator
+from okforge.deck.validator import ValidationResult as DeckValidationResult
+from okforge.skill.generator import Generator
 
 
 def _make_kb(tmp_path):
-    (tmp_path / ".openkb").mkdir()
-    (tmp_path / ".openkb" / "config.yaml").write_text("model: gpt-4o-mini\n")
+    (tmp_path / ".okforge").mkdir()
+    (tmp_path / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
     (tmp_path / "wiki").mkdir()
     (tmp_path / "wiki" / "index.md").write_text("# index\n")
     return tmp_path
@@ -57,8 +57,8 @@ async def test_generator_run_delegates_to_skill_creator(tmp_path):
         model="gpt-4o-mini",
     )
     with (
-        patch("openkb.skill.generator.run_skill_create", new=AsyncMock()) as runner,
-        patch("openkb.skill.generator.regenerate_marketplace") as regen,
+        patch("okforge.skill.generator.run_skill_create", new=AsyncMock()) as runner,
+        patch("okforge.skill.generator.regenerate_marketplace") as regen,
     ):
         await g.run()
     runner.assert_awaited_once()
@@ -86,7 +86,7 @@ async def test_generator_deck_dispatches_to_deck_creator(tmp_path):
     # Post-refactor: validate_deck moved into run_skill (called inside
     # run_deck_create). Generator just propagates the SkillRunResult's
     # validation up to self.validation.
-    from openkb.agent.skill_runner import SkillRunResult
+    from okforge.agent.skill_runner import SkillRunResult
 
     fake_run_result = SkillRunResult(
         skill_name="openkb-deck-neon",
@@ -96,8 +96,8 @@ async def test_generator_deck_dispatches_to_deck_creator(tmp_path):
     )
 
     with (
-        patch("openkb.skill.generator.run_deck_create", new_callable=AsyncMock) as run_dc,
-        patch("openkb.skill.generator.regenerate_marketplace") as regen,
+        patch("okforge.skill.generator.run_deck_create", new_callable=AsyncMock) as run_dc,
+        patch("okforge.skill.generator.regenerate_marketplace") as regen,
     ):
         run_dc.return_value = fake_run_result
         result = await gen.run()

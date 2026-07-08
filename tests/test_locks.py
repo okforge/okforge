@@ -8,7 +8,7 @@ import threading
 
 import pytest
 
-from openkb.locks import (
+from okforge.locks import (
     atomic_write_json,
     atomic_write_text,
     kb_ingest_lock,
@@ -17,7 +17,7 @@ from openkb.locks import (
 
 
 def test_write_lock_is_reentrant(tmp_path):
-    openkb_dir = tmp_path / ".openkb"
+    openkb_dir = tmp_path / ".okforge"
 
     with kb_ingest_lock(openkb_dir):
         with kb_ingest_lock(openkb_dir):
@@ -25,7 +25,7 @@ def test_write_lock_is_reentrant(tmp_path):
 
 
 def test_read_lock_is_reentrant(tmp_path):
-    openkb_dir = tmp_path / ".openkb"
+    openkb_dir = tmp_path / ".okforge"
 
     with kb_read_lock(openkb_dir):
         with kb_read_lock(openkb_dir):
@@ -33,7 +33,7 @@ def test_read_lock_is_reentrant(tmp_path):
 
 
 def test_read_locks_do_not_block_each_other_in_process(tmp_path):
-    openkb_dir = tmp_path / ".openkb"
+    openkb_dir = tmp_path / ".okforge"
     first_entered = threading.Event()
     release_first = threading.Event()
     second_entered = threading.Event()
@@ -61,7 +61,7 @@ def test_read_locks_do_not_block_each_other_in_process(tmp_path):
 
 
 def test_read_to_write_upgrade_fails(tmp_path):
-    openkb_dir = tmp_path / ".openkb"
+    openkb_dir = tmp_path / ".okforge"
 
     with kb_read_lock(openkb_dir):
         with pytest.raises(RuntimeError, match="Cannot upgrade"):
@@ -70,7 +70,7 @@ def test_read_to_write_upgrade_fails(tmp_path):
 
 
 def test_write_lock_can_take_nested_read(tmp_path):
-    openkb_dir = tmp_path / ".openkb"
+    openkb_dir = tmp_path / ".okforge"
 
     with kb_ingest_lock(openkb_dir):
         with kb_read_lock(openkb_dir):

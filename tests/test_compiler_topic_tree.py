@@ -1,5 +1,5 @@
-from openkb import topic_tree as tt
-from openkb.agent.compiler import _write_concept
+from okforge import topic_tree as tt
+from okforge.agent.compiler import _write_concept
 
 
 def test_write_concept_into_topic_dir(tmp_path):

@@ -1,15 +1,15 @@
 """Full-stack topic-tree integration (deterministic, no network).
 
-Exercises the path a real ``openkb reindex`` takes — bootstrap a flat wiki of
+Exercises the path a real ``okforge reindex`` takes — bootstrap a flat wiki of
 concepts into a tree, then verify links survive the moves and the query tool
 can navigate it — using injected deterministic callables instead of an LLM.
 """
 
 from pathlib import Path
 
-from openkb import topic_tree as tt
-from openkb.agent.tools import read_topic_node
-from openkb.lint import list_existing_wiki_targets, strip_ghost_wikilinks
+from okforge import topic_tree as tt
+from okforge.agent.tools import read_topic_node
+from okforge.lint import list_existing_wiki_targets, strip_ghost_wikilinks
 
 
 def _concept(wiki: Path, stem: str, brief: str, links=()):

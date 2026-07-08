@@ -1,8 +1,8 @@
 """Sanity tests for the built-in deck-neon skill.
 
 ``openkb-deck-neon`` is the DEFAULT deck skill (``DEFAULT_DECK_SKILL`` in
-``openkb/deck/creator.py``), so a typo in its frontmatter or a broken ``od``
-contract would break the most-traveled ``openkb deck new`` path at runtime
+``okforge/deck/creator.py``), so a typo in its frontmatter or a broken ``od``
+contract would break the most-traveled ``okforge deck new`` path at runtime
 while every other test stayed green. These tests pin the structural anchors
 the validator and generator depend on — mirroring ``test_deck_prompt.py``
 which guards the sibling deck-editorial skill.
@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from openkb.agent.skills import _parse_frontmatter
-from openkb.deck.creator import DEFAULT_DECK_SKILL
+from okforge.agent.skills import _parse_frontmatter
+from okforge.deck.creator import DEFAULT_DECK_SKILL
 
 SKILL_MD = Path(__file__).resolve().parent.parent / "skills" / "openkb-deck-neon" / "SKILL.md"
 

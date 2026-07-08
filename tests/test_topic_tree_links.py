@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from openkb import topic_tree as tt
-from openkb.lint import list_existing_wiki_targets, strip_ghost_wikilinks
+from okforge import topic_tree as tt
+from okforge.lint import list_existing_wiki_targets, strip_ghost_wikilinks
 
 
 def _mk(p: Path, text: str = "x"):
@@ -54,7 +54,7 @@ def test_link_resolves_after_split_move(tmp_path):
 
 
 def test_all_wiki_pages_aliases_nested_concepts(tmp_path):
-    from openkb.lint import find_broken_links
+    from okforge.lint import find_broken_links
 
     wiki = tmp_path / "wiki"
     _mk(wiki / "concepts" / "transformer" / "self-attention.md")
@@ -64,7 +64,7 @@ def test_all_wiki_pages_aliases_nested_concepts(tmp_path):
 
 
 def test_retarget_md_links_follows_moved_concept(tmp_path):
-    from openkb.okf import retarget_md_links
+    from okforge.okf import retarget_md_links
 
     wiki = tmp_path / "wiki"
     _mk(wiki / "concepts" / "transformer" / "self-attention.md")
@@ -77,7 +77,7 @@ def test_retarget_md_links_follows_moved_concept(tmp_path):
 
 
 def test_links_resolve_dir_prefixed_to_nested(tmp_path):
-    from openkb.links import wikilinks_to_markdown
+    from okforge.links import wikilinks_to_markdown
 
     (tmp_path / "concepts" / "transformer").mkdir(parents=True)
     (tmp_path / "concepts" / "transformer" / "self-attention.md").write_text("x")
@@ -89,7 +89,7 @@ def test_retarget_fixes_moved_pages_own_outgoing_links(tmp_path):
     """A concept moved one level deeper has its OWN ../summaries/X.md links
     skewed by the depth change; the tail-match must repair them even though
     the stem is ambiguous (summaries/ and sources/ share stems)."""
-    from openkb.okf import retarget_md_links
+    from okforge.okf import retarget_md_links
 
     wiki = tmp_path / "wiki"
     _mk(wiki / "summaries" / "doc1.md")

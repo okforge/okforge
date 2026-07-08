@@ -1,4 +1,4 @@
-"""Direct unit tests for :mod:`openkb.agent.skills`.
+"""Direct unit tests for :mod:`okforge.agent.skills`.
 
 Tests the scanner that ``run_skill`` / ``build_chat_agent`` depend on
 to discover ``SKILL.md`` packages across multiple root directories.
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from openkb.agent.skills import (
+from okforge.agent.skills import (
     DEFAULT_SKILL_ROOTS,
     _parse_frontmatter,
     scan_local_skills,
@@ -24,7 +24,7 @@ from openkb.agent.skills import (
 @pytest.fixture(autouse=True)
 def _isolate_home(monkeypatch, tmp_path):
     """Point ``$HOME`` at the test's tmp_path so the scanner's default
-    ``~/.openkb/skills`` and ``~/.claude/skills`` roots resolve to empty
+    ``~/.config/okforge/skills`` and ``~/.claude/skills`` roots resolve to empty
     locations under the test sandbox — otherwise the user's real
     installed skills leak into every test."""
     fake_home = tmp_path / "isolated-home"
@@ -32,7 +32,7 @@ def _isolate_home(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(fake_home))
     # Neutralize the package-bundled roots so these unit tests exercise the
     # scanning primitive in isolation; bundled discovery is covered explicitly.
-    monkeypatch.setattr("openkb.agent.skills.BUNDLED_SKILL_ROOTS", ())
+    monkeypatch.setattr("okforge.agent.skills.BUNDLED_SKILL_ROOTS", ())
 
 
 def _write_skill(
@@ -105,7 +105,7 @@ def test_scan_skips_skill_without_description(tmp_path: Path):
 def test_scan_falls_back_to_dir_name_when_frontmatter_omits_name(tmp_path: Path):
     """If frontmatter has ``description`` but no ``name``, the scanner
     uses the directory name as a sane default. This lets a user drop a
-    skill into ``~/.openkb/skills/my-deck/`` without writing the name
+    skill into ``~/.config/okforge/skills/my-deck/`` without writing the name
     twice."""
     sk_dir = tmp_path / "skills" / "dir-name-only"
     sk_dir.mkdir(parents=True)
@@ -130,8 +130,8 @@ def test_scan_first_hit_wins_across_roots(tmp_path: Path, monkeypatch):
     root wins. This is what lets a user override a built-in skill by
     dropping a same-named SKILL.md into ``<kb>/skills/``."""
     # Point the home-global root at a tmp location (so the test doesn't
-    # rely on the real ~/.openkb/skills state)
-    home_root = tmp_path / "home-openkb-skills"
+    # rely on the real ~/.config/okforge/skills state)
+    home_root = tmp_path / "home-okforge-skills"
     home_root.mkdir()
     _write_skill(home_root, "dup", description="HOME version")
 
@@ -160,7 +160,7 @@ def test_scan_default_roots_listed(tmp_path: Path):
     a refactor doesn't silently change which dirs are searched."""
     assert DEFAULT_SKILL_ROOTS == (
         "skills",
-        "~/.openkb/skills",
+        "~/.config/okforge/skills",
         "~/.claude/skills",
     )
 
@@ -171,7 +171,7 @@ def test_scan_includes_bundled_skills(tmp_path: Path, monkeypatch):
     ``deck new`` work right after ``pip install``."""
     bundled = tmp_path / "bundled"
     _write_skill(bundled, "openkb-deck-neon", description="built-in deck theme")
-    monkeypatch.setattr("openkb.agent.skills.BUNDLED_SKILL_ROOTS", (str(bundled),))
+    monkeypatch.setattr("okforge.agent.skills.BUNDLED_SKILL_ROOTS", (str(bundled),))
     names = {s["name"] for s in scan_local_skills(tmp_path)}
     assert "openkb-deck-neon" in names
 
@@ -181,7 +181,7 @@ def test_kb_skill_overrides_bundled(tmp_path: Path, monkeypatch):
     in the KB wins, so users can customize a built-in theme."""
     bundled = tmp_path / "bundled"
     _write_skill(bundled, "openkb-deck-neon", description="BUILT-IN")
-    monkeypatch.setattr("openkb.agent.skills.BUNDLED_SKILL_ROOTS", (str(bundled),))
+    monkeypatch.setattr("okforge.agent.skills.BUNDLED_SKILL_ROOTS", (str(bundled),))
     _write_skill(tmp_path / "skills", "openkb-deck-neon", description="KB OVERRIDE")
     match = next(s for s in scan_local_skills(tmp_path) if s["name"] == "openkb-deck-neon")
     assert match["description"] == "KB OVERRIDE"

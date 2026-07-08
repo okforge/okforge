@@ -1,7 +1,7 @@
 # Configuration & setup
 
 Everything that controls how okforge talks to your LLM lives in two places:
-`.openkb/config.yaml` (model, language, tuning) and a `.env` file (your API key).
+`.okforge/config.yaml` (model, language, tuning) and a `.env` file (your API key).
 
 ---
 
@@ -56,11 +56,11 @@ openkb init -m gpt-5.4 -l zh
 > `printf 'gpt-5.4\n\nen\n' | openkb init` works in a script.
 
 `init` creates: `raw/`, `wiki/{summaries,concepts,entities,sources/images}`,
-`wiki/AGENTS.md`, `wiki/index.md`, `wiki/log.md`, and `.openkb/config.yaml`.
+`wiki/AGENTS.md`, `wiki/index.md`, `wiki/log.md`, and `.okforge/config.yaml`.
 
 ---
 
-## 2. `.openkb/config.yaml` reference
+## 2. `.okforge/config.yaml` reference
 
 The file `init` writes is small; everything else is optional. This is the shipped
 [`config.yaml.example`](../../config.yaml.example), verbatim:
@@ -191,9 +191,11 @@ LLM_API_KEY=your-key-here
 Most commands need to know which KB they act on. Resolution order:
 
 1. `--kb-dir /path/to/kb` (or `OPENKB_DIR=/path/to/kb`) — explicit override.
-2. Walk up from the current directory looking for a `.openkb/` folder.
-3. The global default registered by `openkb use <path>` (stored in
-   `~/.config/openkb/global.yaml`).
+2. Walk up from the current directory looking for a `.okforge/` folder
+   (or a legacy `.openkb/` — see "Upgrading from a pre-rename KB" in
+   the top-level README).
+3. The global default registered by `okforge use <path>` (stored in
+   `~/.config/okforge/global.yaml`).
 
 ```bash
 # Run a query against a specific KB from anywhere
