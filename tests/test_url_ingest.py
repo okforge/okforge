@@ -500,7 +500,6 @@ def test_add_single_file_returns_added_on_success(tmp_path):
     mock_result = ConvertResult(
         raw_path=doc,
         source_path=source_path,
-        is_long_doc=False,
         file_hash="cafe" * 16,
     )
 
@@ -557,7 +556,6 @@ def test_add_single_file_returns_failed_on_pipeline_error(tmp_path):
     mock_result = ConvertResult(
         raw_path=doc,
         source_path=source_path,
-        is_long_doc=False,
         file_hash="cafe" * 16,
     )
 
@@ -667,7 +665,6 @@ def test_url_ingest_keeps_raw_file_on_pipeline_failure(tmp_path):
     mock_result = ConvertResult(
         raw_path=fetched_path,
         source_path=source_path,
-        is_long_doc=False,
         file_hash="cafe" * 16,
     )
 

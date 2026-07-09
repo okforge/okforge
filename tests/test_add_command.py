@@ -99,90 +99,30 @@ class TestAddCommand:
         assert not (kb_dir / "wiki" / "sources" / "notes.md").exists()
         assert HashRegistry(kb_dir / ".okforge" / "hashes.json").all_entries() == {}
 
-    def _long_doc_conv(self, kb_dir, name, file_hash):
-        from okforge.converter import ConvertResult
+    def test_add_rejects_pdf_over_threshold(self, tmp_path):
+        """A raw long PDF is rejected during conversion, with a clear message
+        pointing at pre-chunking — okforge no longer auto-indexes these."""
+        from unittest.mock import MagicMock
 
-        return ConvertResult(
-            raw_path=kb_dir / "raw" / f"{name}.pdf",
-            source_path=None,
-            is_long_doc=True,
-            file_hash=file_hash,
-            doc_name=name,
-        )
-
-    def test_long_doc_rollback_removes_only_the_new_blob(self, tmp_path):
-        """A failed long-doc add must roll back the blob IT created under
-        .okforge/files, while a pre-existing blob (another document) survives —
-        the targeted track_new must not touch blobs this add didn't create."""
         from okforge.cli import add_single_file
-        from okforge.indexer import IndexResult
 
         kb_dir = self._setup_kb(tmp_path)
-        files = kb_dir / ".okforge" / "files" / "default"
-        files.mkdir(parents=True)
-        other = files / "other-doc.pdf"
-        other.write_bytes(b"another-doc-keep-me")
+        doc = tmp_path / "long.pdf"
+        doc.write_bytes(b"%PDF-1.4 fake long content")
 
-        new_id = "11111111-1111-1111-1111-111111111111"
-
-        def fake_index(raw_path, kb_dir_arg, doc_name=None):
-            (files / f"{new_id}.pdf").write_bytes(b"new-blob")
-            (files / new_id / "images").mkdir(parents=True)
-            (files / new_id / "images" / "p1.png").write_bytes(b"img")
-            return IndexResult(doc_id=new_id, description="", tree={"structure": []})
-
-        doc = tmp_path / "paper.pdf"
-        doc.write_bytes(b"%PDF-1.4 fake")
-        conv = self._long_doc_conv(kb_dir, "paper", "cafebabe00" * 8)
+        fake_doc = MagicMock()
+        fake_doc.page_count = 200
+        fake_doc.__enter__ = MagicMock(return_value=fake_doc)
+        fake_doc.__exit__ = MagicMock(return_value=False)
 
         with (
-            patch("okforge.cli.convert_document", return_value=conv),
-            patch("okforge.indexer.index_long_document", side_effect=fake_index),
-            patch("okforge.agent.compiler.compile_long_doc", side_effect=RuntimeError("boom")),
-            patch("okforge.cli.time.sleep"),
+            patch("okforge.converter.pymupdf.open", return_value=fake_doc),
             patch("okforge.cli._setup_llm_key"),
         ):
             outcome = add_single_file(doc, kb_dir)
 
         assert outcome == "failed"
-        assert not (files / f"{new_id}.pdf").exists()  # new blob rolled back
-        assert not (files / new_id).exists()  # new images subtree rolled back
-        assert other.read_bytes() == b"another-doc-keep-me"  # pre-existing survives
-
-    def test_long_doc_dedup_hit_does_not_delete_existing_blob(self, tmp_path):
-        """PageIndex content-dedup can return an EXISTING doc_id and write no new
-        blob (diverged hashes.json/pageindex.db). A failed add must NOT delete
-        that pre-existing blob on rollback (regression: track_new globbing the
-        doc_id would otherwise register and delete it)."""
-        from okforge.cli import add_single_file
-        from okforge.indexer import IndexResult
-
-        kb_dir = self._setup_kb(tmp_path)
-        files = kb_dir / ".okforge" / "files" / "default"
-        files.mkdir(parents=True)
-        existing_id = "22222222-2222-2222-2222-222222222222"
-        existing_blob = files / f"{existing_id}.pdf"
-        existing_blob.write_bytes(b"pre-existing-do-not-delete")
-
-        def fake_index_dedup(raw_path, kb_dir_arg, doc_name=None):
-            # Dedup hit: return the existing doc_id, create NO new blob.
-            return IndexResult(doc_id=existing_id, description="", tree={"structure": []})
-
-        doc = tmp_path / "dup.pdf"
-        doc.write_bytes(b"%PDF-1.4 dup")
-        conv = self._long_doc_conv(kb_dir, "dup", "feedface00" * 8)
-
-        with (
-            patch("okforge.cli.convert_document", return_value=conv),
-            patch("okforge.indexer.index_long_document", side_effect=fake_index_dedup),
-            patch("okforge.agent.compiler.compile_long_doc", side_effect=RuntimeError("boom")),
-            patch("okforge.cli.time.sleep"),
-            patch("okforge.cli._setup_llm_key"),
-        ):
-            outcome = add_single_file(doc, kb_dir)
-
-        assert outcome == "failed"
-        assert existing_blob.read_bytes() == b"pre-existing-do-not-delete"
+        assert not (kb_dir / "raw" / "long.pdf").exists()
 
     def test_add_directory_calls_helper_for_each_file(self, tmp_path):
         kb_dir = self._setup_kb(tmp_path)
@@ -255,7 +195,6 @@ class TestAddCommand:
         mock_result = ConvertResult(
             raw_path=kb_dir / "raw" / "test.md",
             source_path=source_path,
-            is_long_doc=False,
             file_hash="deadbeef00" * 8,
             doc_name="test",
         )

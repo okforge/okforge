@@ -18,17 +18,18 @@ humans steer, agents execute. Optimize changes for agent legibility.
 ## Module map (openkb/)
 - `cli.py` — Click CLI entry point & command wiring *(large; see tech-debt)*.
 - `config.py` — config loading/validation (LiteLLM passthrough, env).
-- `converter.py` — document → markdown conversion (markitdown).
+- `converter.py` — document → markdown conversion (markitdown); a raw PDF
+  at/above `pageindex_threshold` pages is rejected, not auto-indexed —
+  okforge has no long-document chunking pipeline of its own.
 - `url_ingest.py` — fetch & ingest URLs (trafilatura).
 - `images.py` — figure/image extraction & handling.
-- `indexer.py` — PageIndex tree indexing for long docs.
 - `mutation.py` — crash-safe, serial KB mutations.
 - `locks.py` — atomic writes / file locking (`atomic_write_text`, portalocker).
 - `state.py` — run/session state tracking.
 - `frontmatter.py` — YAML frontmatter round-trip (OKF).
 - `schema.py` — page/content schema constants & helpers.
 - `lint.py` — structural wiki lint (broken links, orphans, index sync).
-- `tree_renderer.py`, `visualize.py`, `watcher.py` — rendering / graph / file watch.
+- `visualize.py`, `watcher.py` — graph / file watch.
 - `agent/compiler.py` — LLM wiki compiler *(large; see tech-debt)*.
 - `agent/linter.py` — semantic (LLM) wiki lint (contradictions, gaps, staleness).
 - `agent/chat.py`, `agent/chat_session.py` — chat over the wiki *(chat.py large)*.

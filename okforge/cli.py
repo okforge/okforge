@@ -14,6 +14,7 @@ import contextlib
 import json
 import logging
 import shutil
+import sqlite3
 import sys
 import time
 import uuid
@@ -49,7 +50,6 @@ import litellm
 litellm.suppress_debug_info = True
 from dotenv import load_dotenv
 
-from okforge.agent.compiler import compile_long_doc
 from okforge.config import (
     DEFAULT_CONFIG,
     LEGACY_STATE_DIR_NAME,
@@ -465,9 +465,9 @@ def _add_single_file_locked(
 
     Steps:
     1. Load config to get the model name.
-    2. Convert the document (hash-check; skip if already known).
-    3. If long doc: run PageIndex then compile_long_doc.
-    4. Else: compile_short_doc.
+    2. Convert the document (hash-check; skip if already known; a PDF at/above
+       ``pageindex_threshold`` pages is rejected — pre-chunk it first).
+    3. compile_short_doc.
 
     Returns:
         ``"added"`` on full success, ``"skipped"`` when the file's hash
@@ -504,7 +504,6 @@ def _add_single_file_locked(
         return "skipped"
 
     doc_name = result.doc_name or file_path.stem
-    index_result = None  # populated only on the long-doc branch
 
     final_raw, final_source = _final_artifact_paths(result, kb_dir)
     try:
@@ -528,69 +527,19 @@ def _add_single_file_locked(
         if final_source is not None:
             result.source_path = final_source
 
-        # 3/4. Index and compile
-        if result.is_long_doc:
-            if result.raw_path is None:
-                raise RuntimeError(f"Converted long document has no raw artifact: {file_path.name}")
-            click.echo("  Long document detected — indexing with PageIndex...")
-            # PageIndex content-dedups: if the same content is already indexed
-            # (e.g. hashes.json and pageindex.db diverged after a remove whose
-            # PageIndex cleanup failed), col.add() returns the EXISTING doc_id
-            # and writes no new blob. Capture the blob set *before* indexing so
-            # we register only blobs THIS add actually created — otherwise
-            # rollback would delete a prior document's blob.
-            files_root = kb_state_dir / "files"
-            blobs_before = set(files_root.glob("*/*")) if files_root.exists() else set()
-            try:
-                from okforge.indexer import index_long_document
-
-                index_result = index_long_document(result.raw_path, kb_dir, doc_name=doc_name)
-            except Exception as exc:
-                click.echo(f"  [ERROR] Indexing failed: {exc}")
-                logger.debug("Indexing traceback:", exc_info=True)
-                raise
-
-            # Register only the newly-created blob artifacts for this doc (the
-            # {doc_id} file + its images dir) — the append-only store means the
-            # name isn't known until now — so rollback + crash recovery remove
-            # exactly this add's blob, never a pre-existing one, instead of
-            # snapshotting the whole store up front. The doc_id guard + the
-            # blobs_before diff keep a dedup hit (or an unexpected empty doc_id)
-            # from registering — and later deleting — existing blobs.
-            if index_result.doc_id and files_root.exists():
-                snapshot.track_new(
-                    [
-                        p
-                        for p in files_root.glob(f"*/{index_result.doc_id}*")
-                        if p not in blobs_before
-                    ]
-                )
-
-            summary_path = kb_dir / "wiki" / "summaries" / f"{doc_name}.md"
-            _run_compile_with_retry(
-                lambda: compile_long_doc(
-                    doc_name,
-                    summary_path,
-                    index_result.doc_id,
-                    kb_dir,
-                    model,
-                    doc_description=index_result.description,
-                ),
-                label=f"Compiling long doc (doc_id={index_result.doc_id})",
-            )
-        else:
-            if result.source_path is None:
-                raise RuntimeError(f"Converted document has no source artifact: {file_path.name}")
-            source_path = result.source_path
-            _run_compile_with_retry(
-                lambda: compile_short_doc(doc_name, source_path, kb_dir, model),
-                label="Compiling short doc",
-            )
+        # 3/4. Compile
+        if result.source_path is None:
+            raise RuntimeError(f"Converted document has no source artifact: {file_path.name}")
+        source_path = result.source_path
+        _run_compile_with_retry(
+            lambda: compile_short_doc(doc_name, source_path, kb_dir, model),
+            label="Compiling short doc",
+        )
 
         # Register hash only after successful compilation.
         if result.file_hash:
             registry = HashRegistry(kb_state_dir / "hashes.json")
-            doc_type = "long_pdf" if result.is_long_doc else file_path.suffix.lstrip(".")
+            doc_type = file_path.suffix.lstrip(".")
             meta = {
                 "name": file_path.name,
                 "doc_name": doc_name,
@@ -601,8 +550,6 @@ def _add_single_file_locked(
                 meta["raw_path"] = _registry_path(result.raw_path, kb_dir)
             if result.source_path is not None:
                 meta["source_path"] = _registry_path(result.source_path, kb_dir)
-            if index_result is not None:
-                meta["doc_id"] = index_result.doc_id
             registry.remove_by_doc_name(doc_name)
             for existing_hash, existing_meta in list(registry.all_entries().items()):
                 if (
@@ -1306,39 +1253,59 @@ def _cleanup_pageindex(
     doc_name: str,
     doc_id: str | None,
 ) -> tuple[bool, str]:
-    """Drop a long-doc entry from PageIndex's local SQLite + remove its
-    managed files. Returns ``(did_cleanup, message)``.
+    """Drop a long-doc entry from ``pageindex.db`` + remove its managed
+    files. Returns ``(did_cleanup, message)``.
 
     No-op (returns ``(False, "no PageIndex state")``) when no
     ``pageindex.db`` exists — short-doc-only KBs never created any.
 
-    Falls back to matching by ``doc_name`` via ``list_documents()`` when
-    the registry entry pre-dates PR #51's ``doc_id`` field. Ambiguous
-    multi-match cases are skipped with a warning rather than guessed.
+    ``pageindex.db``'s schema is a frozen legacy format: it was written by
+    the (now-removed) long-doc auto-ingest pipeline, which used to depend on
+    the third-party ``pageindex`` package. That package is gone, but its
+    on-disk format lives on for the KBs that already have long-doc entries
+    (e.g. Xphase) — read/deleted here directly via ``sqlite3`` rather than
+    reviving that dependency just for cleanup. Collection name is always
+    ``"default"`` (the only value that package ever used).
+
+    Falls back to matching by ``doc_name`` when the registry entry pre-dates
+    PR #51's ``doc_id`` field. Ambiguous multi-match cases are skipped with
+    a warning rather than guessed.
     """
-    if not (kb_state_dir / "pageindex.db").exists():
+    db_path = kb_state_dir / "pageindex.db"
+    if not db_path.exists():
         return False, "no PageIndex state"
 
-    from pageindex import PageIndexClient
+    conn = sqlite3.connect(str(db_path))
+    try:
+        if doc_id is None:
+            rows = conn.execute(
+                "SELECT doc_id FROM documents WHERE collection_name = ? AND doc_name = ?",
+                ("default", doc_name),
+            ).fetchall()
+            if not rows:
+                return False, "no PageIndex doc to delete"
+            if len(rows) > 1:
+                return False, (
+                    f"{len(rows)} PageIndex docs match doc_name='{doc_name}'; "
+                    "skipping (re-add to refresh)"
+                )
+            doc_id = rows[0][0]
 
-    _setup_llm_key(kb_dir)
-    config = load_config(kb_state_dir / "config.yaml")
-    model = config.get("model", DEFAULT_CONFIG.get("model", "gpt-5.4"))
-    client = PageIndexClient(model=model, storage_path=str(kb_state_dir))
-    col = client.collection()
-
-    if doc_id is None:
-        candidates = [d for d in col.list_documents() if d.get("doc_name") == doc_name]
-        if not candidates:
-            return False, "no PageIndex doc to delete"
-        if len(candidates) > 1:
-            return False, (
-                f"{len(candidates)} PageIndex docs match doc_name='{doc_name}'; "
-                "skipping (re-add to refresh)"
-            )
-        doc_id = candidates[0]["doc_id"]
-
-    col.delete_document(doc_id)
+        row = conn.execute(
+            "SELECT file_path FROM documents WHERE doc_id = ? AND collection_name = ?",
+            (doc_id, "default"),
+        ).fetchone()
+        if row and row[0]:
+            Path(row[0]).unlink(missing_ok=True)
+        doc_dir = kb_state_dir / "files" / "default" / doc_id
+        if doc_dir.exists():
+            shutil.rmtree(doc_dir)
+        conn.execute(
+            "DELETE FROM documents WHERE doc_id = ? AND collection_name = ?", (doc_id, "default")
+        )
+        conn.commit()
+    finally:
+        conn.close()
     return True, f"deleted PageIndex doc ({doc_id[:12]}…)"
 
 

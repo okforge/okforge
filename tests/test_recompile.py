@@ -112,7 +112,6 @@ def test_recompile_long_dispatches_compile_long_doc_with_doc_id(kb_dir):
     with (
         patch("okforge.agent.compiler.compile_long_doc", new_callable=AsyncMock) as long_,
         patch("okforge.agent.compiler.compile_short_doc", new_callable=AsyncMock) as short,
-        patch("okforge.indexer.index_long_document") as index,
     ):
         result = _invoke(kb_dir, ["recompile", "paper.pdf"])
 
@@ -124,8 +123,6 @@ def test_recompile_long_dispatches_compile_long_doc_with_doc_id(kb_dir):
     assert args[2] == "doc-abc123"  # doc_id
     assert args[3] == kb_dir
     short.assert_not_called()
-    # PageIndex must NOT be re-run
-    index.assert_not_called()
     assert "recompiled 1" in result.output
 
 

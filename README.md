@@ -63,6 +63,10 @@ and extracted photos/figures, plus a sibling `<doc>.pages.json` page
 array that `okforge add` reads directly for real `(p. N)` citations in
 the compiled summaries — no separate wiring needed.
 
+A PDF at/above `pageindex_threshold` pages (default 20) is rejected the
+same way — okforge doesn't auto-chunk long documents, so pre-chunk it
+into smaller page ranges first, the same as any other large source.
+
 ```bash
 okforge-vision-ocr scanned.pdf raw/book.md   # OCR + photo extraction
 okforge add raw/book.md                      # ingest, with page citations

@@ -25,7 +25,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-keywords = ["ai", "rag", "retrieval", "knowledge-base", "llm", "pageindex", "agents", "document"]
+keywords = ["ai", "rag", "retrieval", "knowledge-base", "llm", "agents", "document"]
 # All dependencies are pinned exactly (supply-chain caution — e.g. the
 # litellm package-poisoning incident). Bump deliberately after vetting
 # each release.
@@ -33,7 +33,7 @@ keywords = ["ai", "rag", "retrieval", "knowledge-base", "llm", "pageindex", "age
 # returning empty Responses output (BerriAI/litellm#25429) and
 # auto-injects GitHub Copilot IDE-auth headers.
 dependencies = [
-    "pageindex==0.3.0.dev1",
+    "pymupdf==1.27.2.3",
     "trafilatura==2.0.0",
     "click==8.4.0",
     "watchdog==6.0.0",

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from okforge.converter import convert_document, get_pdf_page_count
 
 # ---------------------------------------------------------------------------
@@ -37,7 +39,6 @@ class TestConvertDocumentMarkdown:
         result = convert_document(src, kb_dir)
 
         assert result.skipped is False
-        assert result.is_long_doc is False
         assert result.source_path is not None
         assert result.source_path.exists()
         text = result.source_path.read_text(encoding="utf-8")
@@ -131,7 +132,6 @@ class TestConvertDocumentPdfShort:
 
         mock_cpwi.assert_called_once()
         assert result.skipped is False
-        assert result.is_long_doc is False
         assert result.source_path is not None
         assert result.source_path.exists()
 
@@ -142,26 +142,20 @@ class TestConvertDocumentPdfShort:
 
 
 class TestConvertDocumentPdfLong:
-    def test_long_pdf_returns_is_long_doc(self, kb_dir, tmp_path):
-        """PDF >= threshold pages returns is_long_doc=True, source_path=None."""
+    def test_long_pdf_raises(self, kb_dir, tmp_path):
+        """PDF >= threshold pages is rejected — okforge doesn't auto-chunk it."""
         src = tmp_path / "long.pdf"
         src.write_bytes(b"%PDF-1.4 fake long content")
 
-        with (
-            patch("okforge.converter.pymupdf.open") as mock_mu,
-        ):
+        with patch("okforge.converter.pymupdf.open") as mock_mu:
             fake_doc = MagicMock()
             fake_doc.page_count = 200  # above threshold
             fake_doc.__enter__ = MagicMock(return_value=fake_doc)
             fake_doc.__exit__ = MagicMock(return_value=False)
             mock_mu.return_value = fake_doc
 
-            result = convert_document(src, kb_dir)
-
-        assert result.is_long_doc is True
-        assert result.source_path is None
-        assert result.skipped is False
-        assert result.raw_path is not None
+            with pytest.raises(ValueError, match="200"):
+                convert_document(src, kb_dir)
 
 
 # ---------------------------------------------------------------------------

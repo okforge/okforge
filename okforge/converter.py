@@ -32,7 +32,6 @@ class ConvertResult:
 
     raw_path: Path | None = None
     source_path: Path | None = None
-    is_long_doc: bool = False
     skipped: bool = False
     file_hash: str | None = None  # For deferred hash registration
     doc_name: str | None = None  # Stable wiki name (collision-resistant)
@@ -155,7 +154,8 @@ def convert_document(
     Steps:
     1. Hash-check — skip if already known.
     2. Copy source to ``raw/``.
-    3. If PDF and page count >= threshold → return :attr:`ConvertResult.is_long_doc`.
+    3. If PDF and page count >= threshold → raise (pre-chunk long PDFs
+       before ingesting; okforge does not auto-chunk them).
     4. If Markdown/plain text — read, process relative images, save to
        ``wiki/sources/``. Everything else is expected to be pre-converted to
        Markdown before ingest (this fork stripped the MarkItDown path).
@@ -208,17 +208,10 @@ def convert_document(
         if src.suffix.lower() == ".pdf":
             page_count = get_pdf_page_count(src)
             if page_count >= threshold:
-                logger.info(
-                    "Long PDF detected (%d pages >= %d threshold): %s",
-                    page_count,
-                    threshold,
-                    src.name,
-                )
-                return ConvertResult(
-                    raw_path=raw_dest,
-                    is_long_doc=True,
-                    file_hash=file_hash,
-                    doc_name=doc_name,
+                raise ValueError(
+                    f"{src.name} has {page_count} pages (>= {threshold} threshold) — "
+                    "pre-chunk it into smaller page ranges before ingesting; "
+                    "okforge does not auto-chunk long documents."
                 )
 
         # ------------------------------------------------------------------

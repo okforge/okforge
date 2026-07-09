@@ -12,8 +12,9 @@ Covers:
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from click.testing import CliRunner
 
@@ -765,7 +766,6 @@ def test_add_persists_doc_name_for_later_remove(tmp_path):
     mock_result = ConvertResult(
         raw_path=raw_path,
         source_path=source_path,
-        is_long_doc=False,
         file_hash="deadbeef" * 8,  # 64 hex chars
     )
 
@@ -972,76 +972,64 @@ def test_cli_remove_dry_run_does_not_touch_images(kb_dir):
 
 
 # ---------------------------------------------------------------------------
-# Functional-completeness fix: `doc_id` is persisted for long PDFs so a
-# later `okforge remove` can call PageIndex's delete_document API.
-# ---------------------------------------------------------------------------
-
-
-def test_add_long_pdf_persists_doc_id_to_registry(tmp_path):
-    """Long-doc ingest must record `doc_id` in the registry. Without it,
-    the remove path has no handle to feed `Collection.delete_document`.
-    """
-    from okforge.converter import ConvertResult
-    from okforge.indexer import IndexResult
-
-    # Minimal KB
-    (tmp_path / "raw").mkdir()
-    (tmp_path / "wiki" / "summaries").mkdir(parents=True)
-    (tmp_path / "wiki" / "sources" / "images").mkdir(parents=True)
-    (tmp_path / "wiki" / "concepts").mkdir(parents=True)
-    (tmp_path / "wiki" / "explorations").mkdir(parents=True)
-    (tmp_path / "wiki" / "reports").mkdir(parents=True)
-    (tmp_path / "wiki" / "index.md").write_text(
-        "# Knowledge Base Index\n\n## Documents\n\n## Concepts\n\n## Explorations\n",
-        encoding="utf-8",
-    )
-    (tmp_path / "wiki" / "log.md").write_text("# Log\n", encoding="utf-8")
-    openkb_dir = tmp_path / ".okforge"
-    openkb_dir.mkdir()
-    (openkb_dir / "config.yaml").write_text("model: gpt-4o-mini\n")
-    (openkb_dir / "hashes.json").write_text("{}")
-
-    pdf = tmp_path / "long.pdf"
-    pdf.write_bytes(b"%PDF-1.4\n" + b"\x00" * 200)
-    raw_path = tmp_path / "raw" / "long.pdf"
-    raw_path.write_bytes(pdf.read_bytes())
-
-    convert_mock = ConvertResult(
-        raw_path=raw_path,
-        source_path=None,
-        is_long_doc=True,
-        file_hash="cafebabe" * 8,
-    )
-    index_mock = IndexResult(
-        doc_id="pi-doc-abc123",
-        description="A long PDF",
-        tree={},
-    )
-
-    runner = CliRunner()
-    with (
-        patch("okforge.cli._find_kb_dir", return_value=tmp_path),
-        patch("okforge.cli.convert_document", return_value=convert_mock),
-        patch("okforge.indexer.index_long_document", return_value=index_mock),
-        patch("okforge.cli.asyncio.run"),
-    ):
-        result = runner.invoke(cli, ["add", str(pdf)])
-
-    assert result.exit_code == 0, result.output
-    hashes = json.loads((openkb_dir / "hashes.json").read_text())
-    ((_, meta),) = hashes.items()
-    assert meta["type"] == "long_pdf"
-    assert meta["doc_id"] == "pi-doc-abc123"
-
-
-# ---------------------------------------------------------------------------
 # Functional-completeness fix: PageIndex local state cleanup on remove.
+#
+# pageindex.db is a frozen legacy on-disk format: it used to be written by
+# the pageindex package's own SQLite storage backend (a `collections` +
+# `documents` table, see okforge.cli._cleanup_pageindex's docstring). That
+# package is gone; these tests build a real SQLite file with the same
+# schema directly, exercising _cleanup_pageindex's actual sqlite3 code
+# rather than mocking a client object that no longer exists.
 # ---------------------------------------------------------------------------
+
+
+def _write_pageindex_db(kb_dir: Path, docs: list[dict]) -> None:
+    """Create a real pageindex.db with the legacy schema, one row per dict
+    in *docs* (each needs at least ``doc_id``/``doc_name``; ``file_path``
+    defaults to a blob path under ``files/default/<doc_id>.pdf``)."""
+    db_path = kb_dir / ".okforge" / "pageindex.db"
+    conn = sqlite3.connect(str(db_path))
+    conn.execute(
+        "CREATE TABLE collections (name TEXT PRIMARY KEY, "
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+    )
+    conn.execute(
+        "CREATE TABLE documents (doc_id TEXT PRIMARY KEY, collection_name TEXT NOT NULL, "
+        "doc_name TEXT, doc_description TEXT, file_path TEXT, file_hash TEXT, "
+        "doc_type TEXT NOT NULL, structure JSON, pages JSON, "
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+    )
+    conn.execute("INSERT INTO collections (name) VALUES ('default')")
+    for d in docs:
+        # file_path is stored absolute (matching the original package's own
+        # behavior — its delete_document unlinked it directly with no base
+        # dir join), so the default here must be too.
+        default_file_path = str(kb_dir / ".okforge" / "files" / "default" / f"{d['doc_id']}.pdf")
+        conn.execute(
+            "INSERT INTO documents "
+            "(doc_id, collection_name, doc_name, doc_description, file_path, doc_type) "
+            "VALUES (?, 'default', ?, '', ?, 'pdf')",
+            (
+                d["doc_id"],
+                d["doc_name"],
+                d.get("file_path", default_file_path),
+            ),
+        )
+    conn.commit()
+    conn.close()
+
+
+def _pageindex_doc_ids(kb_dir: Path) -> list[str]:
+    conn = sqlite3.connect(str(kb_dir / ".okforge" / "pageindex.db"))
+    rows = conn.execute("SELECT doc_id FROM documents").fetchall()
+    conn.close()
+    return [r[0] for r in rows]
 
 
 def _seed_long_pdf_kb(kb_dir: Path, doc_id: str | None = "pi-doc-xyz") -> None:
-    """Seed a KB with a single long-PDF entry plus a stub pageindex.db
-    file so the remove command treats the doc as PageIndex-backed.
+    """Seed a KB with a single long-PDF entry. Callers add a matching
+    pageindex.db via ``_write_pageindex_db`` separately — its mere
+    existence flips the cleanup path on.
     """
     meta = {
         "name": "paper.pdf",
@@ -1064,61 +1052,47 @@ def _seed_long_pdf_kb(kb_dir: Path, doc_id: str | None = "pi-doc-xyz") -> None:
         encoding="utf-8",
     )
     (kb_dir / "wiki" / "log.md").write_text("# Log\n", encoding="utf-8")
-    # Stub PageIndex state — its mere existence flips the cleanup path on.
-    (kb_dir / ".okforge" / "pageindex.db").write_bytes(b"SQLite format 3\x00")
 
 
 def test_cli_remove_calls_pageindex_delete_with_stored_doc_id(kb_dir):
-    """When the registry entry has a `doc_id`, remove must call
-    `Collection.delete_document(doc_id)` directly — no list_documents
-    lookup needed.
-    """
+    """When the registry entry has a `doc_id`, remove must delete that
+    exact row plus its blob artifacts — no doc_name lookup needed."""
     _seed_long_pdf_kb(kb_dir, doc_id="pi-doc-xyz")
+    _write_pageindex_db(kb_dir, [{"doc_id": "pi-doc-xyz", "doc_name": "paper"}])
+    blob = kb_dir / ".okforge" / "files" / "default" / "pi-doc-xyz.pdf"
+    blob.parent.mkdir(parents=True, exist_ok=True)
+    blob.write_bytes(b"blob")
+    images_dir = kb_dir / ".okforge" / "files" / "default" / "pi-doc-xyz"
+    images_dir.mkdir(parents=True)
+    (images_dir / "p1.png").write_bytes(b"img")
 
-    fake_col = MagicMock()
-    fake_client = MagicMock()
-    fake_client.collection.return_value = fake_col
-
-    with (
-        patch("pageindex.PageIndexClient", return_value=fake_client) as mock_cls,
-        patch("okforge.cli._setup_llm_key"),
-    ):
-        result = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
+    result = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
 
     assert result.exit_code == 0, result.output
-    mock_cls.assert_called_once()
-    # Storage path must point at the KB's .okforge directory.
-    _, kwargs = mock_cls.call_args
-    assert kwargs.get("storage_path") == str(kb_dir / ".okforge")
-    fake_col.delete_document.assert_called_once_with("pi-doc-xyz")
-    fake_col.list_documents.assert_not_called()  # No fallback needed
     assert "PageIndex" in result.output
+    assert _pageindex_doc_ids(kb_dir) == []
+    assert not blob.exists()
+    assert not images_dir.exists()
 
 
 def test_cli_remove_pageindex_fallback_lookup_by_doc_name(kb_dir):
     """Legacy registry entries (added before PR #51) have no `doc_id`.
-    The remove path must fall back to matching by doc_name via
-    list_documents() so existing KBs aren't permanently leaking.
+    The remove path must fall back to matching by doc_name so existing
+    KBs aren't permanently leaking — a differently-named doc must survive.
     """
     _seed_long_pdf_kb(kb_dir, doc_id=None)
+    _write_pageindex_db(
+        kb_dir,
+        [
+            {"doc_id": "pi-found-id", "doc_name": "paper"},
+            {"doc_id": "pi-other-id", "doc_name": "other"},
+        ],
+    )
 
-    fake_col = MagicMock()
-    fake_col.list_documents.return_value = [
-        {"doc_id": "pi-found-id", "doc_name": "paper", "doc_type": "pdf"},
-        {"doc_id": "pi-other-id", "doc_name": "other", "doc_type": "pdf"},
-    ]
-    fake_client = MagicMock()
-    fake_client.collection.return_value = fake_col
-
-    with (
-        patch("pageindex.PageIndexClient", return_value=fake_client),
-        patch("okforge.cli._setup_llm_key"),
-    ):
-        result = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
+    result = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
 
     assert result.exit_code == 0, result.output
-    fake_col.list_documents.assert_called_once()
-    fake_col.delete_document.assert_called_once_with("pi-found-id")
+    assert _pageindex_doc_ids(kb_dir) == ["pi-other-id"]
 
 
 def test_cli_remove_pageindex_fallback_skips_on_ambiguous_match(kb_dir):
@@ -1127,41 +1101,35 @@ def test_cli_remove_pageindex_fallback_skips_on_ambiguous_match(kb_dir):
     completes and the WARN is surfaced.
     """
     _seed_long_pdf_kb(kb_dir, doc_id=None)
+    _write_pageindex_db(
+        kb_dir,
+        [
+            {"doc_id": "pi-a", "doc_name": "paper"},
+            {"doc_id": "pi-b", "doc_name": "paper"},
+        ],
+    )
 
-    fake_col = MagicMock()
-    fake_col.list_documents.return_value = [
-        {"doc_id": "pi-a", "doc_name": "paper"},
-        {"doc_id": "pi-b", "doc_name": "paper"},
-    ]
-    fake_client = MagicMock()
-    fake_client.collection.return_value = fake_col
-
-    with (
-        patch("pageindex.PageIndexClient", return_value=fake_client),
-        patch("okforge.cli._setup_llm_key"),
-    ):
-        result = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
+    result = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
 
     assert result.exit_code == 0, result.output
-    fake_col.delete_document.assert_not_called()
     assert "skipping" in result.output
+    assert set(_pageindex_doc_ids(kb_dir)) == {"pi-a", "pi-b"}  # neither deleted
     # The wiki-side cleanup still ran.
     assert not (kb_dir / "wiki" / "summaries" / "paper.md").exists()
 
 
 def test_cli_remove_skips_pageindex_when_no_state_file(kb_dir):
     """Short-doc-only KBs never created `.okforge/pageindex.db`. The
-    remove flow must not import or instantiate PageIndexClient in that
-    case — opening it would unnecessarily require an LLM key.
+    remove flow must not even attempt to open one.
     """
     _seed_two_doc_kb(kb_dir)
     assert not (kb_dir / ".okforge" / "pageindex.db").exists()
 
-    with patch("pageindex.PageIndexClient") as mock_cls:
+    with patch("okforge.cli.sqlite3.connect") as mock_connect:
         result = _invoke(kb_dir, ["remove", "attention.pdf", "--yes"])
 
     assert result.exit_code == 0, result.output
-    mock_cls.assert_not_called()
+    mock_connect.assert_not_called()
     assert "PageIndex" not in result.output
 
 
@@ -1170,6 +1138,11 @@ def test_cli_remove_skips_pageindex_when_no_state_file(kb_dir):
 # so the user can retry. The previous order removed the registry entry first
 # and then attempted PageIndex cleanup — leaving an orphan SQLite row that
 # silently re-bound on the next `okforge add` via PageIndex's SHA-256 dedup.
+#
+# These two tests are about `remove`'s own orchestration/retry logic around
+# `_cleanup_pageindex`, not that function's internals (covered above with a
+# real sqlite file) — patching `_cleanup_pageindex` directly keeps them
+# focused on that.
 # ---------------------------------------------------------------------------
 
 
@@ -1180,14 +1153,9 @@ def test_cli_remove_pageindex_failure_preserves_registry_for_retry(kb_dir):
     because every step is idempotent across retries.
     """
     _seed_long_pdf_kb(kb_dir, doc_id="pi-doc-xyz")
+    _write_pageindex_db(kb_dir, [{"doc_id": "pi-doc-xyz", "doc_name": "paper"}])
 
-    fake_client = MagicMock()
-    fake_client.collection.side_effect = RuntimeError("LLM key missing")
-
-    with (
-        patch("pageindex.PageIndexClient", return_value=fake_client),
-        patch("okforge.cli._setup_llm_key"),
-    ):
+    with patch("okforge.cli._cleanup_pageindex", side_effect=RuntimeError("disk full")):
         result = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
 
     # Command exits cleanly with a WARN — not an error code — because the
@@ -1212,33 +1180,22 @@ def test_cli_remove_retry_after_pageindex_failure_completes(kb_dir):
     state is fully retryable.
     """
     _seed_long_pdf_kb(kb_dir, doc_id="pi-doc-xyz")
+    _write_pageindex_db(kb_dir, [{"doc_id": "pi-doc-xyz", "doc_name": "paper"}])
 
-    # First attempt: PageIndex raises.
-    failing_client = MagicMock()
-    failing_client.collection.side_effect = RuntimeError("transient")
-    with (
-        patch("pageindex.PageIndexClient", return_value=failing_client),
-        patch("okforge.cli._setup_llm_key"),
-    ):
+    # First attempt: cleanup raises.
+    with patch("okforge.cli._cleanup_pageindex", side_effect=RuntimeError("transient")):
         first = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
     assert first.exit_code == 0
     assert "[WARN]" in first.output
     # Registry entry survived for retry.
     assert "h_paper" in json.loads((kb_dir / ".okforge" / "hashes.json").read_text())
 
-    # Second attempt: PageIndex succeeds. Same doc_id must drive the
-    # delete since it's still in the registry.
-    working_col = MagicMock()
-    working_client = MagicMock()
-    working_client.collection.return_value = working_col
-    with (
-        patch("pageindex.PageIndexClient", return_value=working_client),
-        patch("okforge.cli._setup_llm_key"),
-    ):
-        second = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
+    # Second attempt: real cleanup runs and succeeds against the same
+    # doc_id, still in the registry.
+    second = _invoke(kb_dir, ["remove", "paper.pdf", "--keep-raw", "--yes"])
 
     assert second.exit_code == 0, second.output
-    working_col.delete_document.assert_called_once_with("pi-doc-xyz")
+    assert _pageindex_doc_ids(kb_dir) == []
 
     # Registry now empty; wiki cleanup remains complete.
     assert json.loads((kb_dir / ".okforge" / "hashes.json").read_text()) == {}
@@ -1325,13 +1282,13 @@ def test_remove_cloud_doc_never_touches_pageindex(tmp_path):
     runner = CliRunner()
     with (
         patch("okforge.cli._find_kb_dir", return_value=tmp_path),
-        patch("pageindex.PageIndexClient") as mock_client,
+        patch("okforge.cli.sqlite3.connect") as mock_connect,
     ):
         result = runner.invoke(cli, ["remove", "cloud-doc", "--yes"])
 
     assert result.exit_code == 0, result.output
-    # The cloud client must never be constructed.
-    mock_client.assert_not_called()
+    # pageindex.db must never even be opened for a cloud-typed doc.
+    mock_connect.assert_not_called()
     # Local artifacts are gone and the registry entry is removed.
     assert not (tmp_path / "wiki" / "summaries" / "cloud-doc.md").exists()
     assert not (tmp_path / "wiki" / "sources" / "cloud-doc.json").exists()
