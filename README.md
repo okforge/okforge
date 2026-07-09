@@ -41,6 +41,13 @@ okforge list --json   # machine-readable state (also: status, okf-lint)
 okforge describe "One line about this project."   # curated description
 ```
 
+New to okforge, or working from a scanned PDF instead of a paper.md?
+[**GETTING_STARTED.md**](GETTING_STARTED.md) is a full beginner
+walkthrough — venv setup, installing
+[okforge-vision-ocr](https://github.com/okforge/okforge-vision-ocr) for
+OCR, local vs. cloud (OpenRouter) model setup, and a complete
+scan-to-wiki example, for Windows/macOS/Linux.
+
 The query agent reads curated pages first, then drills for detail with
 a built-in `grep_wiki` lexical search (locate-then-read) rather than
 re-embedding everything. `okf-lint` checks a wiki bundle's OKF
