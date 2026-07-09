@@ -106,6 +106,20 @@ authenticating proxy) — never a directly-exposed port. Anyone who can
 reach it gets full read access to the KB, including `query` (which
 runs your configured LLM on your behalf), with no login step.
 
+**Testing the http transport directly** (e.g. with `curl`, without a
+real MCP client) means implementing the Streamable HTTP session
+handshake yourself — a real client (`claude mcp add --transport http
+...`) does all of this for you automatically:
+
+- `Accept` must include both `application/json` and `text/event-stream`
+  — either alone gets `406 Not Acceptable`.
+- Call `initialize` first and capture the `Mcp-Session-Id` response
+  header; send it back as a header on every subsequent request. There's
+  no session without it.
+- Responses are SSE (`event: message` / `data: {...}`) — strip the
+  `data: ` prefix and parse the rest as JSON.
+- `query`'s argument key is `question`, not `query`.
+
 ### Topic tree (experimental, per-KB opt-in)
 
 For knowledge bases that outgrow a flat concept list: set
