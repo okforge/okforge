@@ -71,6 +71,13 @@ def _grep_binary() -> str | None:
     return shutil.which("grep")
 
 
+def _running_on_windows() -> bool:
+    """Own seam over ``os.name`` so tests can flip it without also changing
+    which ``pathlib`` flavour ``Path(...)`` picks (patching ``os.name``
+    itself breaks ``WindowsPath``/``PosixPath`` instantiation mid-test)."""
+    return os.name == "nt"
+
+
 def grep_wiki_files(
     pattern: str,
     wiki_root: str,
@@ -87,11 +94,12 @@ def grep_wiki_files(
     scaffolding files (``log.md``, ``AGENTS.md``, ``SCHEMA.md`` — see
     :data:`okforge.schema.EXCLUDED_WIKI_FILES`).
 
-    Shells out to the system ``grep`` (POSIX, ubiquitous on macOS/Linux) with
-    ``shell=False``, so a hostile *pattern* cannot inject commands. ``pattern``
-    is an **extended** regular expression (ERE) by default — alternation
-    ``a|b``, ``?``, ``+``, ``()`` all work — or a literal string when
-    *fixed_string* is True.
+    Shells out to the system ``grep`` (POSIX, ubiquitous on macOS/Linux; on
+    Windows this is normally the MSYS2 build bundled with Git for Windows)
+    with ``shell=False``, so a hostile *pattern* cannot inject commands.
+    ``pattern`` is an **extended** regular expression (ERE) by default —
+    alternation ``a|b``, ``?``, ``+``, ``()`` all work — or a literal string
+    when *fixed_string* is True.
 
     Args:
         pattern: Search pattern. ERE by default; literal when *fixed_string*.
@@ -136,14 +144,31 @@ def grep_wiki_files(
     except subprocess.TimeoutExpired:
         return "grep timed out; narrow the pattern."
 
-    prefix = str(root) + os.sep
+    # Compare with '/'-joined paths, not os.sep-joined ones: on Windows the
+    # only grep normally found on PATH is Git for Windows' bundled MSYS2
+    # build, which recurses into *root* by joining child names with '/'
+    # regardless of the root argument's own backslash style. A raw
+    # startswith(str(root) + os.sep) then never matches a single line (every
+    # result silently dropped, always reporting "No matches") because the
+    # character right after the root is '/' where '\\' was expected. Also
+    # compare case-insensitively on Windows: MSYS tools may lowercase the
+    # drive letter.
+    def _slashed(p: str) -> str:
+        return p.replace("\\", "/")
+
+    on_windows = _running_on_windows()
+    root_str = _slashed(str(root))
+    prefix = root_str + "/"
+    prefix_cmp = prefix.casefold() if on_windows else prefix
     results: list[str] = []
     for line in proc.stdout.splitlines():
         if not line:
             continue
-        if not line.startswith(prefix):
+        line_slashed = _slashed(line)
+        line_cmp = line_slashed.casefold() if on_windows else line_slashed
+        if not line_cmp.startswith(prefix_cmp):
             continue  # defensive: only surface paths under wiki_root
-        rel = line[len(prefix) :]
+        rel = line_slashed[len(prefix) :]
         path_part = rel.split(":", 1)[0]
         # Defense in depth: --exclude already drops these basenames; this also
         # catches a same-named file in a subdirectory.

@@ -345,3 +345,71 @@ def test_timeout_returns_message(tmp_path, monkeypatch):
     monkeypatch.setattr(tools_mod.subprocess, "run", _raise_timeout)
     out = grep_wiki_files("transformer", wiki)
     assert out == "grep timed out; narrow the pattern."
+
+
+# --- Windows / MSYS grep path-separator mismatch -----------------------------
+#
+# On Windows the only grep normally found on PATH is Git for Windows'
+# bundled MSYS2 build. It recurses into the root argument by joining child
+# names with '/' regardless of the root's own separator style, so its
+# stdout can mix backslashes (from the root argument as given) with forward
+# slashes (from its own internal joins) in a single line. A naive
+# `line.startswith(str(root) + os.sep)` then never matches on Windows —
+# every result is silently dropped and grep_wiki_files always reports
+# "No matches", even though grep found real hits (reported live on a
+# Windows install: status/read_wiki_page/query all worked, only grep_wiki
+# was broken).
+
+
+def test_windows_style_mixed_separators_still_match(tmp_path, monkeypatch):
+    wiki = _wiki(tmp_path)
+    root_str = str((tmp_path / "wiki").resolve())
+    monkeypatch.setattr(tools_mod, "_grep_binary", lambda: "grep")
+
+    class _FakeProc:
+        returncode = 0
+        # Root as given (whatever separator this OS uses) + MSYS-style '/'
+        # joins for everything grep itself appended while recursing.
+        stdout = f"{root_str}\\summaries\\paper.md:2:self-attention here\n"
+        stderr = ""
+
+    monkeypatch.setattr(tools_mod.subprocess, "run", lambda *a, **k: _FakeProc())
+    out = grep_wiki_files("self-attention", wiki)
+    assert "summaries/paper.md:2:self-attention here" == out
+
+
+def test_windows_drive_letter_case_is_ignored(tmp_path, monkeypatch):
+    wiki = _wiki(tmp_path)
+    root_str = str((tmp_path / "wiki").resolve())
+    monkeypatch.setattr(tools_mod, "_grep_binary", lambda: "grep")
+    monkeypatch.setattr(tools_mod, "_running_on_windows", lambda: True)
+
+    class _FakeProc:
+        returncode = 0
+        # MSYS grep can report a differently-cased path than the one we
+        # resolved (e.g. a lowercased drive letter) — matching is
+        # case-insensitive on Windows since the filesystem is too.
+        stdout = f"{root_str.upper()}/summaries/paper.md:2:self-attention here\n"
+        stderr = ""
+
+    monkeypatch.setattr(tools_mod.subprocess, "run", lambda *a, **k: _FakeProc())
+    out = grep_wiki_files("self-attention", wiki)
+    assert "summaries/paper.md:2:self-attention here" == out
+
+
+def test_case_mismatch_not_ignored_off_windows(tmp_path, monkeypatch):
+    """Same fixture as the Windows test above, but os.name stays "posix" —
+    a differently-cased path must NOT be treated as under wiki_root there,
+    since POSIX filesystems are case-sensitive."""
+    wiki = _wiki(tmp_path)
+    root_str = str((tmp_path / "wiki").resolve())
+    monkeypatch.setattr(tools_mod, "_grep_binary", lambda: "grep")
+
+    class _FakeProc:
+        returncode = 0
+        stdout = f"{root_str.upper()}/summaries/paper.md:2:self-attention here\n"
+        stderr = ""
+
+    monkeypatch.setattr(tools_mod.subprocess, "run", lambda *a, **k: _FakeProc())
+    out = grep_wiki_files("self-attention", wiki)
+    assert out == "No matches for self-attention."
