@@ -73,24 +73,34 @@ against a locally-hosted Qwen3.6-27B-MTP, but not tied to it).
 
 ### MCP server
 
-`okforge mcp` starts an MCP server (stdio transport) over the KB it's
-run against — same resolution as every other command (cwd walk-up, or
-`--kb-dir`). Tools: `query`, `grep_wiki`, `read_wiki_page`, `status`,
-and `read_topic` when the KB has `topic_tree` enabled. Read-only —
-ingest stays a deliberate CLI action.
+`okforge mcp` starts an MCP server over the KB it's run against — same
+resolution as every other command (cwd walk-up, or `--kb-dir`). Tools:
+`query`, `grep_wiki`, `read_wiki_page`, `status`, and `read_topic` when
+the KB has `topic_tree` enabled. Read-only — ingest stays a deliberate
+CLI action.
+
+Two transports, picked with `--transport`:
 
 ```bash
+# stdio (default) — the client spawns this process itself
 claude mcp add --transport stdio okforge -- okforge --kb-dir /path/to/kb mcp
+
+# Streamable HTTP — this process listens on a socket for clients to connect to
+okforge --kb-dir /path/to/kb mcp --transport http --port 8000
+claude mcp add --transport http okforge http://127.0.0.1:8000/mcp
 ```
 
-Works the same way with any MCP client that supports stdio transport.
+Works the same way with any MCP client that supports stdio or
+Streamable HTTP.
 
-**No authentication.** stdio is safe by default (it's just this
-process's own pipes, nothing listens on the network). If you bridge it
-to be reachable remotely, only do so over a network you already trust
-end-to-end (SSH tunnel, VPN) — never a directly-exposed port. Anyone
-who can reach it gets full read access to the KB, including `query`
-(which runs your configured LLM on your behalf), with no login step.
+**No authentication, on either transport.** stdio is safe by default
+(it's just this process's own pipes, nothing listens on the network).
+`--transport http` binds `127.0.0.1` by default for the same reason —
+if you change `--host` or put it behind a reverse proxy, only do so
+over a network you already trust end-to-end (SSH tunnel, VPN, an
+authenticating proxy) — never a directly-exposed port. Anyone who can
+reach it gets full read access to the KB, including `query` (which
+runs your configured LLM on your behalf), with no login step.
 
 ### Topic tree (experimental, per-KB opt-in)
 
@@ -114,6 +124,22 @@ wiki/
   sources/images/<doc>/ # extracted images
   log.md                # append-only ingest log
 ```
+
+## Roadmap
+
+Planned, not yet built:
+
+- **Web UI** — a native UI for browsing and querying a KB (search,
+  read wiki pages, run `query`/`chat`) shipped with the engine itself.
+- **Multiple LLM endpoints** — a KB config today points `model:` at one
+  litellm-style endpoint; planned support for registering several
+  (different hosts, different models) and choosing between them per
+  call rather than being locked to one for the whole KB.
+- **Parallel processing** — ingest and query are fully serial today
+  (one `add` at a time, one generation call at a time); planned
+  concurrency for page-level work and multi-document ingest, bounded
+  by each endpoint's slot budget so throughput scales with the
+  hardware actually available.
 
 ## Development
 

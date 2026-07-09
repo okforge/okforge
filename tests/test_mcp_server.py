@@ -172,3 +172,66 @@ class TestMcpCommandStdoutHygiene:
         assert result.exit_code != 0
         assert result.stdout == ""
         assert "No knowledge base found" in result.stderr
+
+
+class TestMcpCommandTransport:
+    """--transport http is the Streamable HTTP path; stdio stays the
+    default so existing `claude mcp add --transport stdio ...` setups
+    don't change behavior."""
+
+    def test_transport_http_runs_streamable_http(self, wired_kb, monkeypatch):
+        from okforge.cli import _KNOWN_PROVIDER_KEYS
+
+        for var in ("LLM_API_KEY", *_KNOWN_PROVIDER_KEYS):
+            monkeypatch.delenv(var, raising=False)
+        fake_server = MagicMock()
+        with patch(
+            "okforge.agent.mcp_server.build_mcp_server", return_value=fake_server
+        ) as mock_build:
+            runner = CliRunner()
+            result = runner.invoke(
+                cli,
+                [
+                    "--kb-dir",
+                    str(wired_kb),
+                    "mcp",
+                    "--transport",
+                    "http",
+                    "--host",
+                    "0.0.0.0",
+                    "--port",
+                    "9001",
+                ],
+            )
+        assert result.exit_code == 0
+        mock_build.assert_called_once_with(wired_kb, "openai/test-model", host="0.0.0.0", port=9001)
+        fake_server.run.assert_called_once_with(transport="streamable-http")
+
+    def test_transport_stdio_still_default(self, wired_kb, monkeypatch):
+        from okforge.cli import _KNOWN_PROVIDER_KEYS
+
+        for var in ("LLM_API_KEY", *_KNOWN_PROVIDER_KEYS):
+            monkeypatch.delenv(var, raising=False)
+        fake_server = MagicMock()
+        with patch(
+            "okforge.agent.mcp_server.build_mcp_server", return_value=fake_server
+        ) as mock_build:
+            runner = CliRunner()
+            result = runner.invoke(cli, ["--kb-dir", str(wired_kb), "mcp"])
+        assert result.exit_code == 0
+        mock_build.assert_called_once_with(
+            wired_kb, "openai/test-model", host="127.0.0.1", port=8000
+        )
+        fake_server.run.assert_called_once_with(transport="stdio")
+
+
+class TestBuildMcpServerHostPort:
+    def test_host_port_passed_through_to_fastmcp_settings(self, wired_kb):
+        server = build_mcp_server(wired_kb, "openai/test-model", host="0.0.0.0", port=9001)
+        assert server.settings.host == "0.0.0.0"
+        assert server.settings.port == 9001
+
+    def test_defaults_bind_loopback(self, wired_kb):
+        server = build_mcp_server(wired_kb, "openai/test-model")
+        assert server.settings.host == "127.0.0.1"
+        assert server.settings.port == 8000

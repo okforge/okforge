@@ -12,13 +12,17 @@ layer already documents: mutating a KB (``add``, ``remove``, ``lint
 --fix``, ...) stays a deliberate CLI action, never something an MCP
 client can trigger.
 
-No authentication. stdio transport is inherently local (this process's
-own pipes — nothing listens on the network), which is what makes that
-safe by default. If it's ever bridged to be reachable remotely, that
+No authentication, on either transport. stdio is inherently local
+(this process's own pipes — nothing listens on the network), which is
+what makes that safe by default. The ``streamable-http`` transport
+does listen on a socket — it defaults to 127.0.0.1 so it's no more
+exposed than stdio out of the box, but if you point ``--host`` at
+anything other than loopback, or put it behind a reverse proxy, that
 must only happen over a network already trusted end-to-end (SSH
-tunnel, VPN) — never a directly-exposed port. Anyone who can reach it
-gets full read access to the bound KB, including ``query`` (which
-runs the configured LLM on the caller's behalf), with no login step.
+tunnel, VPN, an authenticating proxy in front of it) — never a
+directly-exposed port. Anyone who can reach it gets full read access
+to the bound KB, including ``query`` (which runs the configured LLM on
+the caller's behalf), with no login step.
 """
 
 from __future__ import annotations
@@ -32,11 +36,21 @@ from okforge.agent.tools import grep_wiki_files, read_topic_node, read_wiki_file
 from okforge.config import load_config, state_dir
 
 
-def build_mcp_server(kb_dir: Path, model: str) -> FastMCP:
+def build_mcp_server(
+    kb_dir: Path,
+    model: str,
+    *,
+    host: str = "127.0.0.1",
+    port: int = 8000,
+) -> FastMCP:
     """Build a FastMCP server bound to *kb_dir*, using *model* for ``query``.
 
     Caller is responsible for resolving ``kb_dir`` and calling
     ``_setup_llm_key`` beforehand — this function only wires tools.
+
+    *host*/*port* only take effect for the ``streamable-http`` transport
+    (FastMCP reads them off the server at construction time, not at
+    ``run()``); the ``stdio`` transport ignores them.
     """
     wiki_root = str(kb_dir / "wiki")
 
@@ -52,6 +66,8 @@ def build_mcp_server(kb_dir: Path, model: str) -> FastMCP:
             "Answers from query cite source pages as (p. N) when "
             "available."
         ),
+        host=host,
+        port=port,
     )
 
     @mcp.tool()

@@ -1231,23 +1231,52 @@ def query(ctx, question, save, raw):
 
 
 @cli.command()
+@click.option(
+    "--transport",
+    type=click.Choice(["stdio", "http"]),
+    default="stdio",
+    show_default=True,
+    help="stdio (a local process's own pipes) or http (Streamable HTTP over a socket).",
+)
+@click.option(
+    "--host",
+    default="127.0.0.1",
+    show_default=True,
+    help="Bind address for --transport http. Ignored for stdio.",
+)
+@click.option(
+    "--port",
+    type=int,
+    default=8000,
+    show_default=True,
+    help="Bind port for --transport http. Ignored for stdio.",
+)
 @click.pass_context
-def mcp(ctx):
-    """Start an MCP server (stdio transport) exposing this knowledge base.
+def mcp(ctx, transport, host, port):
+    """Start an MCP server exposing this knowledge base.
 
     Read-only: query, grep_wiki, read_wiki_page, status, and — when this
     KB has topic_tree enabled — read_topic. Bound to whichever KB the
     usual resolution finds (cwd walk-up, or --kb-dir). Point an MCP
     client at this command, e.g.:
 
-        claude mcp add --transport stdio okforge -- okforge --kb-dir /path/to/kb mcp
+      \b
+      claude mcp add --transport stdio okforge -- okforge --kb-dir /path/to/kb mcp
 
-    No authentication. stdio is safe as-is (it's just this process's
-    pipes, nothing listens on the network) — but if you bridge it to be
-    reachable remotely, only do so over a network you already trust
-    (SSH tunnel, VPN), never a directly-exposed port: anyone who can
-    reach it gets full read access to this KB, including query (which
-    runs your configured LLM on your behalf) with no login required.
+    Or, for Streamable HTTP:
+
+      \b
+      okforge --kb-dir /path/to/kb mcp --transport http --port 8000
+      claude mcp add --transport http okforge http://127.0.0.1:8000/mcp
+
+    No authentication on either transport. stdio is safe as-is (it's
+    just this process's pipes, nothing listens on the network). http
+    defaults to binding 127.0.0.1 only, for the same reason — if you
+    change --host or put it behind a reverse proxy, only do so over a
+    network you already trust (SSH tunnel, VPN, an authenticating
+    proxy), never a directly-exposed port: anyone who can reach it gets
+    full read access to this KB, including query (which runs your
+    configured LLM on your behalf) with no login required.
     """
     kb_dir = _find_kb_dir(ctx.obj.get("kb_dir_override"))
     if kb_dir is None:
@@ -1259,15 +1288,16 @@ def mcp(ctx):
     # stdio transport requires stdout to carry *only* newline-delimited
     # JSON-RPC once the server starts — any stray click.echo (e.g.
     # _setup_llm_key's missing-API-key warning) would corrupt the stream
-    # for every real MCP client. Redirect anything printed during setup
-    # to stderr instead, where a human running this directly still sees it.
+    # for every real MCP client. http doesn't share stdout with the
+    # protocol, but redirecting during this one-time setup is harmless
+    # either way, so it's unconditional rather than transport-gated.
     with contextlib.redirect_stdout(sys.stderr):
         config = load_config(state_dir(kb_dir) / "config.yaml")
         _setup_llm_key(kb_dir)
     model: str = config.get("model", DEFAULT_CONFIG["model"])
 
-    server = build_mcp_server(kb_dir, model)
-    server.run(transport="stdio")
+    server = build_mcp_server(kb_dir, model, host=host, port=port)
+    server.run(transport="stdio" if transport == "stdio" else "streamable-http")
 
 
 def _cleanup_pageindex(
