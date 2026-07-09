@@ -45,6 +45,11 @@ dependencies = [
     "prompt_toolkit==3.0.52",
     "rich==15.0.0",
     "portalocker==3.2.0",
+    # Already pulled in transitively by openai-agents (its MCP *client*),
+    # but `okforge mcp` uses it directly as a *server* (FastMCP) — pinned
+    # explicitly per this list's own exact-pin policy rather than relying
+    # on an incidental transitive version.
+    "mcp==1.27.1",
 ]
 
 [project.urls]

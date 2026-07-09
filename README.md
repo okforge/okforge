@@ -41,13 +41,6 @@ okforge list --json   # machine-readable state (also: status, okf-lint)
 okforge describe "One line about this project."   # curated description
 ```
 
-New to okforge, or working from a scanned PDF instead of a paper.md?
-[**GETTING_STARTED.md**](GETTING_STARTED.md) is a full beginner
-walkthrough — venv setup, installing
-[okforge-vision-ocr](https://github.com/okforge/okforge-vision-ocr) for
-OCR, local vs. cloud (OpenRouter) model setup, and a complete
-scan-to-wiki example, for Windows/macOS/Linux.
-
 The query agent reads curated pages first, then drills for detail with
 a built-in `grep_wiki` lexical search (locate-then-read) rather than
 re-embedding everything. `okf-lint` checks a wiki bundle's OKF
@@ -77,6 +70,27 @@ okforge add raw/book.md                      # ingest, with page citations
 
 It works against any OpenAI-compatible vision-language model (tuned
 against a locally-hosted Qwen3.6-27B-MTP, but not tied to it).
+
+### MCP server
+
+`okforge mcp` starts an MCP server (stdio transport) over the KB it's
+run against — same resolution as every other command (cwd walk-up, or
+`--kb-dir`). Tools: `query`, `grep_wiki`, `read_wiki_page`, `status`,
+and `read_topic` when the KB has `topic_tree` enabled. Read-only —
+ingest stays a deliberate CLI action.
+
+```bash
+claude mcp add --transport stdio okforge -- okforge --kb-dir /path/to/kb mcp
+```
+
+Works the same way with any MCP client that supports stdio transport.
+
+**No authentication.** stdio is safe by default (it's just this
+process's own pipes, nothing listens on the network). If you bridge it
+to be reachable remotely, only do so over a network you already trust
+end-to-end (SSH tunnel, VPN) — never a directly-exposed port. Anyone
+who can reach it gets full read access to the KB, including `query`
+(which runs your configured LLM on your behalf), with no login step.
 
 ### Topic tree (experimental, per-KB opt-in)
 
