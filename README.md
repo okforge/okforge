@@ -50,6 +50,35 @@ Configuration lives in `.okforge/config.yaml` (model, language, entity
 types, …) and `~/.config/okforge/global.yaml` (KB registry, default
 KB). The LLM endpoint is configured litellm-style — any
 OpenAI-compatible server works, including a local llama.cpp instance.
+Hosted providers work through the same model string: e.g.
+`okforge init --model openrouter/qwen/qwen3.6-27b` with
+`LLM_API_KEY=sk-or-...` in the KB's `.env` runs the whole pipeline
+against [OpenRouter](https://openrouter.ai/), no other changes.
+
+One tip for thinking-capable models (the Qwen3 family in particular):
+left alone they spend a hidden reasoning pass on **every** pipeline
+call, and each serving stack spells "don't reason" differently. Put the
+dialect your endpoint understands in the KB's `config.yaml` — for
+llama.cpp/vLLM:
+
+```yaml
+llm_extra_body:
+  chat_template_kwargs:
+    enable_thinking: false
+```
+
+and for OpenRouter:
+
+```yaml
+llm_extra_body:
+  reasoning:
+    enabled: false
+```
+
+The wrong (ignored) dialect fails silently — the wiki still builds, you
+just pay reasoning-token cost and latency on every call. Measured on
+`qwen3.6-27b` via OpenRouter: a trivial completion drops from 199
+tokens to 2 with the block in place.
 
 ### Ingesting scans and non-text documents
 
