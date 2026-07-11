@@ -55,6 +55,8 @@ cp "~/Documents/My Folder/My Document.pdf" source/mydoc.pdf
 
 > **Tip:** Always use a `source/` directory with no spaces. It keeps your originals organized and avoids path problems.
 
+> **Planning to use the companion web UI?** [okforge-webui](https://github.com/okforge/okforge-webui) drives this same pipeline from a browser, and it discovers knowledge bases by scanning its own `kbs/` directory (e.g. `/opt/okforge/kbs/`). If you run it — or might later — create your project directory there instead of your home directory, or simply move it there afterwards: a KB is self-contained and copy-portable. In that case keep the `.venv` from Step 1 (and, if you prefer, your `source/` originals) *outside* the KB directory — the web UI treats a KB as pure data and snapshots the whole directory with git before every ingest.
+
 ---
 
 ## Step 1: Create a Python Virtual Environment

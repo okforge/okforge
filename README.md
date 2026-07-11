@@ -5,7 +5,8 @@ it builds an interlinked wiki — per-document summaries, cross-document
 concept and entity pages, extracted images, and real page citations
 back to source. The wiki is plain Markdown with YAML frontmatter,
 readable in Obsidian or any editor, and queryable from a CLI, a chat
-REPL, or any MCP client.
+REPL, any MCP client, or the companion
+[okforge-webui](https://github.com/okforge/okforge-webui) web app.
 
 ## Why
 
@@ -174,10 +175,16 @@ wiki/
 
 ## Roadmap
 
+A web UI already exists as a separate companion app:
+[okforge-webui](https://github.com/okforge/okforge-webui) drives the
+whole scan-to-wiki pipeline from a browser — PDF inbox, OCR pilots,
+chunked ingest jobs with live progress, wiki browsing and query, and
+static-site publishing — over the same one-directory-per-KB layout
+this README describes (it discovers KBs by scanning a `kbs/` root, so
+CLI-created KBs placed there just appear).
+
 Planned, not yet built:
 
-- **Web UI** — a native UI for browsing and querying a KB (search,
-  read wiki pages, run `query`/`chat`) shipped with the engine itself.
 - **Multiple LLM endpoints** — a KB config today points `model:` at one
   litellm-style endpoint; planned support for registering several
   (different hosts, different models) and choosing between them per
