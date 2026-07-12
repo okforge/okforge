@@ -13,11 +13,17 @@ plus the **real artifact** okforge produced for it (generated, not hand-written)
 | --- | --- | --- |
 | [`configuration/`](configuration/) | `init`, `config.yaml`, API keys, LiteLLM tuning (Ollama, Copilot) | — |
 | [`commands/`](commands/) | the everyday loop: `add` · `query` · `remove` · `recompile` · `lint` · `list` · `status` | a compiled [`sample-wiki/`](commands/sample-wiki/) |
-| [`pageindex-cloud/`](pageindex-cloud/) | long documents: local vs. cloud indexing, and importing cloud-indexed docs | — |
 | [`chat/`](chat/) | the interactive REPL: persistent sessions + slash commands | — |
 | [`skills/`](skills/) | distill a redistributable agent skill from your wiki | [`transformer-attention/SKILL.md`](skills/transformer-attention/SKILL.md) |
 | [`slides/`](slides/) | generate a single-file HTML slide deck | [`attention-intro.html`](slides/attention-intro.html) |
 | [`visualize/`](visualize/) | render the wiki as an interactive knowledge graph | [`graph.html`](visualize/graph.html) |
+
+> **Long documents:** okforge doesn't auto-chunk — `add` rejects a PDF at/above
+> `pageindex_threshold` pages (default 20). Pre-chunk it into smaller page
+> ranges first; for scans,
+> [okforge-vision-ocr](https://github.com/okforge/okforge-vision-ocr) does this
+> naturally with `--pages` (see the main README's "Ingesting scans and non-text
+> documents").
 
 ## It's all from one paper
 

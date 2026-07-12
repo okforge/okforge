@@ -94,7 +94,7 @@ pageindex_threshold: 20          # PDF pages threshold for PageIndex
 | --- | --- | --- |
 | `model` | `gpt-5.4` | LLM used for all compile/query/chat work. |
 | `language` | `en` | Language the wiki is written in. |
-| `pageindex_threshold` | `20` | PDFs with this many pages **or more** take the long-doc (PageIndex) path; shorter ones go through the short-doc path. See [`pageindex-cloud/`](../pageindex-cloud/). |
+| `pageindex_threshold` | `20` | `add` rejects PDFs with this many pages **or more** — okforge doesn't auto-chunk long documents; pre-chunk them into smaller page ranges first. |
 | `entity_types` | 7 defaults | Custom vocabulary for entity pages. `other` is always kept. |
 | `litellm:` | – | A pass-through block for LiteLLM. See below. |
 
@@ -175,8 +175,6 @@ LLM_API_KEY=your-key-here
   `LLM_API_KEY` is exported as `ANTHROPIC_API_KEY` automatically.
 - **OAuth providers** (`chatgpt/*`, `github_copilot/*`) need **no** key — okforge
   won't warn about a missing one.
-- **PageIndex Cloud** uses a separate `PAGEINDEX_API_KEY` (see
-  [`pageindex-cloud/`](../pageindex-cloud/)).
 
 **Where keys are read from** (first match wins, existing env always respected):
 
