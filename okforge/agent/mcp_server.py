@@ -106,7 +106,9 @@ def build_mcp_server(
     @mcp.tool()
     def read_wiki_page(path: str) -> str:
         """Read one wiki page by its wiki-relative path (as returned by
-        grep_wiki), e.g. 'summaries/doc.md' or 'entities/fort-marion.md'."""
+        grep_wiki), e.g. 'summaries/doc.md' or 'entities/fort-marion.md'.
+        The text carries (p. N) source-page citations — keep them in your
+        answer, next to the claim each one supports."""
         return read_wiki_file(path, wiki_root)
 
     # read_topic only makes sense (and is only correct) for a KB that
@@ -129,7 +131,8 @@ def build_mcp_server(
     async def query(question: str) -> str:
         """Ask this knowledge base a question; returns a written answer
         citing source pages as (p. N) where the documents were ingested
-        page by page. Runs a full retrieval and generation pass on an LLM."""
+        page by page — keep those citations in your reply. Runs a full
+        retrieval and generation pass on an LLM."""
         question = question.strip()
         if not question:
             raise ValueError("empty question")
