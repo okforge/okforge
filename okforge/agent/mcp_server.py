@@ -56,15 +56,28 @@ def build_mcp_server(
 
     mcp = FastMCP(
         "okforge",
+        # This block is the ONE place the grep-vs-query routing rule is
+        # stated. Repeating it in the tool docstrings gave weak client
+        # models the same judgment call from four angles to re-litigate;
+        # observed live, one spent its whole thinking budget re-deciding
+        # and never called anything. Keep the rule here, phrased as a
+        # rule; keep docstrings descriptive.
         instructions=(
-            f"Query the okforge knowledge base at {kb_dir}. Prefer "
-            "grep_wiki for fast lexical fact lookups (names, dates, "
-            "places) and read_wiki_page to pull a specific page found "
-            "that way — both are instant, no LLM cost. Use query only "
-            "when you need synthesis across sources: it runs a full "
-            "retrieval-and-generation pass on an LLM and is slower. "
-            "Answers from query cite source pages as (p. N) when "
-            "available."
+            f"Query the okforge knowledge base at {kb_dir} — a "
+            "citation-backed wiki compiled from source documents.\n\n"
+            "Choosing a tool: default to grep_wiki, then read_wiki_page on "
+            "the hits worth citing. Use query only when the question calls "
+            "for a summary, comparison, or explanation spanning multiple "
+            "documents. If this KB offers read_topic, it walks the concept "
+            "topic tree top-down when browsing beats searching.\n\n"
+            "Wiki pages cite their source pages as (p. N) where the "
+            "documents were ingested page by page. Carry those citations "
+            "into your own answer, next to the claim each one supports — "
+            "tracing a statement back to its source page is the point of "
+            "this knowledge base, and an uncited answer throws that away. "
+            "In video-transcript knowledge bases page N is the N-th "
+            "5-minute block of the video, so give the timestamp too: "
+            "(p. 14) = minutes 65-70."
         ),
         host=host,
         port=port,
@@ -80,11 +93,12 @@ def build_mcp_server(
 
     @mcp.tool()
     def grep_wiki(pattern: str, ignore_case: bool = True, fixed_string: bool = False) -> str:
-        """Fast lexical search over the wiki's markdown — no LLM, sub-second.
-        Use this FIRST for fact lookups; only fall back to query() when you
-        need synthesis. Case-insensitive by default. `pattern` is an
-        extended regular expression unless fixed_string is True. Returns
-        matches as `relative/path.md:LINE:text`."""
+        """Lexical search over the wiki's markdown: no LLM, sub-second.
+        Finds names, dates, places, part numbers and the lines they appear
+        on. Case-insensitive by default. `pattern` is an extended regular
+        expression unless fixed_string is True. Returns matches as
+        `relative/path.md:LINE:text`. Read a whole hit with
+        read_wiki_page(path)."""
         return grep_wiki_files(
             pattern, wiki_root, ignore_case=ignore_case, fixed_string=fixed_string
         )
@@ -92,9 +106,7 @@ def build_mcp_server(
     @mcp.tool()
     def read_wiki_page(path: str) -> str:
         """Read one wiki page by its wiki-relative path (as returned by
-        grep_wiki), e.g. 'summaries/doc.md' or 'entities/fort-marion.md'.
-        Cheap and instant — prefer grep_wiki + this over query() for
-        lookups you can answer by reading a page directly."""
+        grep_wiki), e.g. 'summaries/doc.md' or 'entities/fort-marion.md'."""
         return read_wiki_file(path, wiki_root)
 
     # read_topic only makes sense (and is only correct) for a KB that
@@ -115,10 +127,9 @@ def build_mcp_server(
 
     @mcp.tool()
     async def query(question: str) -> str:
-        """Ask this knowledge base a question; returns a synthesized answer
-        with (p. N) page citations when available. Expensive: a full
-        retrieval + generation pass on an LLM — for simple fact lookups use
-        grep_wiki + read_wiki_page instead."""
+        """Ask this knowledge base a question; returns a written answer
+        citing source pages as (p. N) where the documents were ingested
+        page by page. Runs a full retrieval and generation pass on an LLM."""
         question = question.strip()
         if not question:
             raise ValueError("empty question")
