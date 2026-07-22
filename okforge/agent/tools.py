@@ -60,9 +60,7 @@ def _nested_matches(root: Path, path: str) -> list[Path]:
     stem = rel.name
     if not stem:
         return []
-    wanted = (
-        {stem} if stem.endswith((".md", ".json")) else {f"{stem}.md", f"{stem}.json"}
-    )
+    wanted = {stem} if stem.endswith((".md", ".json")) else {f"{stem}.md", f"{stem}.json"}
     search_root = root
     if len(rel.parts) > 1:
         # A named section scopes the search and is binding: concepts/<slug>
@@ -71,9 +69,7 @@ def _nested_matches(root: Path, path: str) -> list[Path]:
         search_root = root / rel.parts[0]
         if not search_root.is_dir():
             return []
-    return sorted(
-        {p for name in wanted for p in search_root.rglob(name) if p.is_file()}
-    )
+    return sorted({p for name in wanted for p in search_root.rglob(name) if p.is_file()})
 
 
 def read_wiki_file(path: str, wiki_root: str) -> str:
@@ -105,10 +101,7 @@ def read_wiki_file(path: str, wiki_root: str) -> str:
         return hits[0].read_text(encoding="utf-8")
     if len(hits) > 1:
         opts = ", ".join(p.relative_to(root).as_posix() for p in hits[:8])
-        return (
-            f"Ambiguous path: {path} matches {len(hits)} pages. "
-            f"Retry with a full path: {opts}"
-        )
+        return f"Ambiguous path: {path} matches {len(hits)} pages. Retry with a full path: {opts}"
     return f"File not found: {path}"
 
 

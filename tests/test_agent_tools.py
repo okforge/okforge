@@ -119,9 +119,7 @@ class TestReadWikiFile:
         (tmp_path / "entities").mkdir()
         (tmp_path / "entities" / "orphan.md").write_text("Entity page.")
 
-        assert read_wiki_file("concepts/orphan", wiki_root) == (
-            "File not found: concepts/orphan"
-        )
+        assert read_wiki_file("concepts/orphan", wiki_root) == ("File not found: concepts/orphan")
 
     def test_fallback_cannot_escape_wiki_root(self, tmp_path):
         wiki_root = str(tmp_path / "wiki")
