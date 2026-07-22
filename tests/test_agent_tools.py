@@ -88,6 +88,49 @@ class TestReadWikiFile:
 
         assert "Summary content." in result
 
+    def test_flat_wikilink_resolves_to_nested_page(self, tmp_path):
+        """index.md links concepts/<slug> even when topic_tree nests it."""
+        wiki_root = str(tmp_path)
+        nested = tmp_path / "concepts" / "ai" / "philosophy"
+        nested.mkdir(parents=True)
+        (nested / "simulation-hypothesis.md").write_text("Nested content.")
+
+        for link in ("concepts/simulation-hypothesis", "concepts/simulation-hypothesis.md"):
+            assert "Nested content." in read_wiki_file(link, wiki_root)
+
+    def test_ambiguous_flat_wikilink_lists_candidates(self, tmp_path):
+        wiki_root = str(tmp_path)
+        for topic in ("media", "cognition"):
+            d = tmp_path / "concepts" / topic
+            d.mkdir(parents=True)
+            (d / "evidence.md").write_text(f"From {topic}.")
+
+        result = read_wiki_file("concepts/evidence", wiki_root)
+
+        assert result.startswith("Ambiguous path:")
+        assert "concepts/media/evidence.md" in result
+        assert "concepts/cognition/evidence.md" in result
+        # Never silently picks one — the caller cites what it reads.
+        assert "From media." not in result
+
+    def test_fallback_stays_inside_its_section(self, tmp_path):
+        """A concepts/ link must not resolve to a same-named entities page."""
+        wiki_root = str(tmp_path)
+        (tmp_path / "entities").mkdir()
+        (tmp_path / "entities" / "orphan.md").write_text("Entity page.")
+
+        assert read_wiki_file("concepts/orphan", wiki_root) == (
+            "File not found: concepts/orphan"
+        )
+
+    def test_fallback_cannot_escape_wiki_root(self, tmp_path):
+        wiki_root = str(tmp_path / "wiki")
+        (tmp_path / "wiki").mkdir()
+        (tmp_path / "secret.md").write_text("Secret.")
+
+        assert "Secret." not in read_wiki_file("../secret.md", wiki_root)
+        assert "Secret." not in read_wiki_file("secret.md", wiki_root)
+
 
 # ---------------------------------------------------------------------------
 # write_wiki_file

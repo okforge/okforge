@@ -13,7 +13,7 @@ import json as _json
 import os
 import shutil
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from okforge.schema import EXCLUDED_WIKI_FILES
 
@@ -46,23 +46,70 @@ def list_wiki_files(directory: str, wiki_root: str) -> str:
     return "\n".join(md_files)
 
 
+def _nested_matches(root: Path, path: str) -> list[Path]:
+    """Pages whose basename matches *path*, for flat wikilinks.
+
+    ``index.md`` and every summary's "Related Concepts" block emit links
+    like ``concepts/simulation-hypothesis`` even when ``topic_tree`` nests
+    that page several folders deep, so following the wiki's own links
+    literally dead-ends. A leading real directory scopes the search, which
+    both narrows it and keeps same-named pages in different sections from
+    colliding.
+    """
+    rel = PurePosixPath(path.replace("\\", "/").strip("/"))
+    stem = rel.name
+    if not stem:
+        return []
+    wanted = (
+        {stem} if stem.endswith((".md", ".json")) else {f"{stem}.md", f"{stem}.json"}
+    )
+    search_root = root
+    if len(rel.parts) > 1:
+        # A named section scopes the search and is binding: concepts/<slug>
+        # must never resolve to a same-named entities page. If the section
+        # does not exist there is nothing to find.
+        search_root = root / rel.parts[0]
+        if not search_root.is_dir():
+            return []
+    return sorted(
+        {p for name in wanted for p in search_root.rglob(name) if p.is_file()}
+    )
+
+
 def read_wiki_file(path: str, wiki_root: str) -> str:
     """Read a Markdown file from the wiki.
 
     Args:
         path: File path relative to *wiki_root* (e.g. ``"sources/notes.md"``).
+            A flat wikilink such as ``"concepts/simulation-hypothesis"``
+            also resolves when the page is nested under topic folders and
+            only one page in that section carries the name.
         wiki_root: Absolute path to the wiki root directory.
 
     Returns:
-        File contents as a string, or ``"File not found: {path}"`` if missing.
+        File contents as a string; ``"File not found: {path}"`` if missing;
+        or, when several pages share the name, a line naming the candidates
+        so the caller can retry with a full path. Never guesses between
+        them — the caller cites what it reads, so picking one silently
+        would mis-source the answer.
     """
     root = Path(wiki_root).resolve()
     full_path = (root / path).resolve()
     if not full_path.is_relative_to(root):
         return "Access denied: path escapes wiki root."
-    if not full_path.exists():
-        return f"File not found: {path}"
-    return full_path.read_text(encoding="utf-8")
+    if full_path.is_file():
+        return full_path.read_text(encoding="utf-8")
+
+    hits = _nested_matches(root, path)
+    if len(hits) == 1:
+        return hits[0].read_text(encoding="utf-8")
+    if len(hits) > 1:
+        opts = ", ".join(p.relative_to(root).as_posix() for p in hits[:8])
+        return (
+            f"Ambiguous path: {path} matches {len(hits)} pages. "
+            f"Retry with a full path: {opts}"
+        )
+    return f"File not found: {path}"
 
 
 @functools.cache

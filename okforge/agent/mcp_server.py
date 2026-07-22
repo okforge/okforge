@@ -83,7 +83,13 @@ def build_mcp_server(
         port=port,
     )
 
-    @mcp.tool()
+    # structured_output=False on every tool: FastMCP otherwise emits a
+    # structuredContent copy alongside the serialized content block, and
+    # clients that hand the model both (Open-WebUI, Page Assist) pay for
+    # the payload twice. This is not limited to dict returns — a plain
+    # `-> str` gets wrapped in {"result": ...} and duplicated just the
+    # same (measured: grep_wiki, 1306 bytes of content + 1256 again).
+    @mcp.tool(structured_output=False)
     def status() -> dict:
         """Content stats for this knowledge base: documents, concepts,
         entities, and their names — same payload as `okforge list --json`."""
@@ -91,7 +97,7 @@ def build_mcp_server(
 
         return collect_list_data(kb_dir)
 
-    @mcp.tool()
+    @mcp.tool(structured_output=False)
     def grep_wiki(pattern: str, ignore_case: bool = True, fixed_string: bool = False) -> str:
         """Lexical search over the wiki's markdown: no LLM, sub-second.
         Finds names, dates, places, part numbers and the lines they appear
@@ -103,7 +109,7 @@ def build_mcp_server(
             pattern, wiki_root, ignore_case=ignore_case, fixed_string=fixed_string
         )
 
-    @mcp.tool()
+    @mcp.tool(structured_output=False)
     def read_wiki_page(path: str) -> str:
         """Read one wiki page by its wiki-relative path (as returned by
         grep_wiki), e.g. 'summaries/doc.md' or 'entities/fort-marion.md'.
@@ -118,7 +124,7 @@ def build_mcp_server(
     config = load_config(state_dir(kb_dir) / "config.yaml")
     if config.get("topic_tree", False):
 
-        @mcp.tool()
+        @mcp.tool(structured_output=False)
         def read_topic(rel: str = "") -> str:
             """Navigate the concept topic tree top-down: start at "" (root),
             pick a child topic from the result, call again with its path,
@@ -127,7 +133,7 @@ def build_mcp_server(
             enabled."""
             return read_topic_node(rel, wiki_root)
 
-    @mcp.tool()
+    @mcp.tool(structured_output=False)
     async def query(question: str) -> str:
         """Ask this knowledge base a question; returns a written answer
         citing source pages as (p. N) where the documents were ingested
