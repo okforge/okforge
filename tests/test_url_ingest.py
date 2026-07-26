@@ -681,7 +681,9 @@ def test_url_ingest_keeps_raw_file_on_pipeline_failure(tmp_path):
     ):
         result = runner.invoke(cli, ["add", "https://example.com/paper.pdf"])
 
-    assert result.exit_code == 0, result.output
+    # A pipeline failure must be reported through the exit code — it is the
+    # only failure signal a non-interactive caller gets.
+    assert result.exit_code == 1, result.output
     assert "[ERROR] Compilation failed" in result.output
     # The raw file must be preserved so the user can retry.
     assert fetched_path.exists()
@@ -723,7 +725,7 @@ def test_url_ingest_pipeline_failure_rolls_back_converted_source_but_keeps_downl
     ):
         result = runner.invoke(cli, ["add", "https://example.com/paper"])
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 1, result.output
     assert "[ERROR] Compilation failed" in result.output
     assert fetched_path.exists()
     assert not (tmp_path / "wiki" / "sources" / "paper.md").exists()
