@@ -36,6 +36,44 @@ from okforge.agent.compiler import (
 from okforge.config import resolve_entity_types
 from okforge.schema import AGENTS_MD
 
+# The page writers take an OKF §7 actor for ``generated.by``. Production passes
+# the configured model; these tests don't care which, so the writers are wrapped
+# to supply one positionally rather than repeating it at ~35 call sites.
+TEST_ACTOR = "okforge/test-model"
+
+
+def _actor_defaulting(fn, position):
+    """Supply ``actor`` when a caller omitted it.
+
+    Injected by keyword, not position, because call sites vary in how many
+    of the leading parameters they pass positionally.
+    """
+
+    def wrapper(*args, **kwargs):
+        if "actor" not in kwargs and len(args) <= position:
+            kwargs["actor"] = TEST_ACTOR
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+_write_summary = _actor_defaulting(_write_summary, 3)
+_write_concept = _actor_defaulting(_write_concept, 5)
+_write_entity = _actor_defaulting(_write_entity, 5)
+
+
+def _sources_of(text):
+    """Resource paths from a page's frontmatter, whatever shape they're in.
+
+    Asserting on resolved paths rather than the literal ``sources:`` line keeps
+    these tests from re-encoding the serialization, which is what made the OKF
+    v0.1 → v0.2 shape change ripple through ~20 of them.
+    """
+    from okforge import frontmatter
+
+    raw = frontmatter.parse(text).get("sources") or []
+    return [frontmatter.source_resource(s) for s in raw]
+
 
 class TestFrontmatterSourceMutation:
     """``_prepend_source_to_frontmatter``/``_remove_source_from_frontmatter`` must preserve existing
@@ -278,7 +316,7 @@ class TestWriteConcept:
         path = wiki / "concepts" / "attention.md"
         assert path.exists()
         text = path.read_text()
-        assert 'sources: ["paper.pdf"]' in text
+        assert _sources_of(text) == ["paper.pdf"]
         assert 'description: "Mechanism for selective focus"' in text
         assert "# Attention" in text
 
@@ -289,7 +327,7 @@ class TestWriteConcept:
         path = wiki / "concepts" / "attention.md"
         assert path.exists()
         text = path.read_text()
-        assert 'sources: ["paper.pdf"]' in text
+        assert _sources_of(text) == ["paper.pdf"]
         assert "brief:" not in text
 
     def test_update_concept_updates_brief(self, tmp_path):
@@ -776,9 +814,8 @@ class TestWriteEntity:
             aliases=None,
         )
         text = (tmp_path / "entities" / "anthropic.md").read_text(encoding="utf-8")
-        assert "summaries/b.md" in text and "summaries/a.md" in text
-        # _yaml_list_line uses json.dumps: b prepended before a, double-quoted
-        assert '"summaries/b.md", "summaries/a.md"' in text
+        # The newly-seen source is prepended, so b precedes a.
+        assert _sources_of(text) == ["summaries/b.md", "summaries/a.md"]
         assert 'type: "Organization"' in text
         assert "v2 richer." in text
         assert "v1." not in text
@@ -1107,7 +1144,7 @@ class TestAddRelatedLink:
         )
         _add_related_link(wiki, "attention", "new-doc", "paper.pdf")
         text = (concepts / "attention.md").read_text()
-        assert 'sources: ["paper.pdf"]' in text
+        assert _sources_of(text) == ["paper.pdf"]
         # Brief was not touched (existing line preserved); only sources was inserted.
         assert "brief: Focus mechanism" in text
         assert "[[summaries/new-doc]]" in text
@@ -1214,7 +1251,7 @@ class TestCompileShortDoc:
         # Verify concept written
         concept_path = wiki / "concepts" / "transformer.md"
         assert concept_path.exists()
-        assert 'sources: ["summaries/test-doc.md"]' in concept_path.read_text()
+        assert _sources_of(concept_path.read_text()) == ["summaries/test-doc.md"]
 
         # Verify index updated
         index_text = (wiki / "index.md").read_text()
@@ -1817,7 +1854,7 @@ class TestCompileConceptsPlan:
         fa_path = wiki / "concepts" / "flash-attention.md"
         assert fa_path.exists()
         fa_text = fa_path.read_text()
-        assert 'sources: ["summaries/test-doc.md"]' in fa_text
+        assert _sources_of(fa_text) == ["summaries/test-doc.md"]
         assert "Flash Attention" in fa_text
 
         # Verify attention updated (is_update=True path in _write_concept)
@@ -1869,7 +1906,9 @@ class TestCompileConceptsPlan:
         assert path.exists(), "single-object array should be unwrapped and written"
         text = path.read_text()
         assert "Recovered body." in text
-        assert "[{" not in text  # not the raw JSON array text
+        # Not the raw JSON array text. Checked against the body only: the OKF
+        # `sources` frontmatter is legitimately a `[{...}]` flow sequence.
+        assert "[{" not in frontmatter_mod.body(text)
 
     @pytest.mark.asyncio
     async def test_truncated_update_preserves_existing_page(self, tmp_path):
@@ -2143,7 +2182,7 @@ class TestCompileConceptsPlan:
         att_path = wiki / "concepts" / "attention.md"
         assert att_path.exists()
         att_text = att_path.read_text()
-        assert 'sources: ["summaries/test-doc.md"]' in att_text
+        assert _sources_of(att_text) == ["summaries/test-doc.md"]
         assert "Attention" in att_text
 
 
@@ -2895,14 +2934,18 @@ class TestFrontmatterDashBoundary:
 
 
 class TestOkfFrontmatterFields:
-    def test_write_summary_carries_title_and_timestamp(self, tmp_path):
+    """OKF v0.2 §5.2: pages carry ``generated: {by, at}``, not a v0.1 ``timestamp``."""
+
+    def test_write_summary_carries_title_and_generated(self, tmp_path):
         wiki = tmp_path / "wiki"
         (wiki / "summaries").mkdir(parents=True)
         _write_summary(wiki, "my-doc", "# Body", doc_type="short", description="d")
         text = (wiki / "summaries" / "my-doc.md").read_text(encoding="utf-8")
         fm = frontmatter_mod.parse(text)
         assert fm["title"] == "my-doc"
-        assert "T" in fm["timestamp"]
+        assert fm["generated"]["by"] == TEST_ACTOR
+        assert "T" in fm["generated"]["at"]
+        assert "timestamp" not in fm
 
     def test_write_concept_create_and_update_refresh_meta(self, tmp_path):
         wiki = tmp_path / "wiki"
@@ -2911,15 +2954,30 @@ class TestOkfFrontmatterFields:
         path = wiki / "concepts" / "attention.md"
         fm = frontmatter_mod.parse(path.read_text(encoding="utf-8"))
         assert fm["title"] == "attention"
-        first_ts = fm["timestamp"]
+        first_ts = fm["generated"]["at"]
 
         _write_concept(wiki, "attention", "# A2", "summaries/d2.md", is_update=True, brief="b2")
         fm2 = frontmatter_mod.parse(path.read_text(encoding="utf-8"))
         assert fm2["title"] == "attention"
-        assert fm2["timestamp"] >= first_ts
+        assert fm2["generated"]["at"] >= first_ts
         assert fm2["type"] == "Concept"
 
-    def test_write_entity_carries_title_and_timestamp(self, tmp_path):
+    def test_update_drops_legacy_timestamp(self, tmp_path):
+        """A page written before v0.2 must not keep both fields (§13.1)."""
+        wiki = tmp_path / "wiki"
+        (wiki / "concepts").mkdir(parents=True)
+        path = wiki / "concepts" / "attention.md"
+        path.write_text(
+            '---\ntype: "Concept"\nsources: ["summaries/d1.md"]\n'
+            'title: "attention"\ntimestamp: "2020-01-01T00:00:00+00:00"\n---\n\n# A\n',
+            encoding="utf-8",
+        )
+        _write_concept(wiki, "attention", "# A2", "summaries/d2.md", is_update=True)
+        fm = frontmatter_mod.parse(path.read_text(encoding="utf-8"))
+        assert "timestamp" not in fm
+        assert fm["generated"]["by"] == TEST_ACTOR
+
+    def test_write_entity_carries_title_and_generated(self, tmp_path):
         wiki = tmp_path / "wiki"
         (wiki / "entities").mkdir(parents=True)
         _write_entity(
@@ -2934,7 +2992,8 @@ class TestOkfFrontmatterFields:
         fm = frontmatter_mod.parse((wiki / "entities" / "Acme.md").read_text(encoding="utf-8"))
         assert fm["title"] == "Acme"
         assert fm["type"] == "Organization"
-        assert "T" in fm["timestamp"]
+        assert fm["generated"]["by"] == TEST_ACTOR
+        assert "timestamp" not in fm
 
 
 class TestMarkdownLinkEmission:

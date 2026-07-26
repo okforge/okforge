@@ -20,9 +20,12 @@ they don't have to reconstruct an answer from scratch every query, and
 what they do say is checkable against a specific page, not just
 plausible-sounding.
 
-The output follows the [Open Knowledge Format (OKF)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) —
+The output follows [Open Knowledge Format (OKF) v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) —
 typed frontmatter, relative links, a predictable directory layout — so
-the wiki a KB produces is portable, not locked to okforge itself.
+the wiki a KB produces is portable, not locked to okforge itself. Every
+page records its provenance (`sources`) and how it was produced
+(`generated: {by, at}`), so a consumer can tell which document a claim
+came from and which model wrote it.
 
 ## Install
 
@@ -45,7 +48,9 @@ okforge describe "One line about this project."   # curated description
 The query agent reads curated pages first, then drills for detail with
 a built-in `grep_wiki` lexical search (locate-then-read) rather than
 re-embedding everything. `okf-lint` checks a wiki bundle's OKF
-conformance.
+conformance; `okf-migrate` brings a bundle written by an older okforge
+up to v0.2 (v0.1 bundles stay readable either way — the spec allows
+falling back to the retired `timestamp` field).
 
 Configuration lives in `.okforge/config.yaml` (model, language, entity
 types, …) and `~/.config/okforge/global.yaml` (KB registry, default

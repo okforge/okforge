@@ -2455,6 +2455,60 @@ def okf_lint(ctx, as_json):
         ctx.exit(1)
 
 
+@cli.command(name="okf-migrate")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="List the pages that would change, write nothing.",
+)
+@click.option("--json", "as_json", is_flag=True, default=False, help="Emit machine-readable JSON.")
+@click.pass_context
+@_with_kb_lock(exclusive=True)
+def okf_migrate_cmd(ctx, dry_run, as_json):
+    """Migrate the wiki bundle's frontmatter from OKF v0.1 to v0.2.
+
+    Rewrites `sources` into the spec's `{id, resource}` mapping shape and
+    replaces the retired `timestamp` field with `generated: {by, at}`,
+    preserving the original instant. `generated.by` is this KB's own
+    configured model, since that is what wrote the pages.
+
+    Existing v0.1 bundles stay readable without this — OKF v0.2 permits
+    falling back to `timestamp` — so migrating is about publishing a bundle
+    a v0.2 consumer can read provenance out of.
+    """
+    from okforge.frontmatter import okf_actor
+    from okforge.okf import okf_migrate
+
+    kb_dir = _find_kb_dir(ctx.obj.get("kb_dir_override"))
+    if kb_dir is None:
+        if as_json:
+            click.echo(json.dumps({"error": "no_kb"}))
+            ctx.exit(1)
+        click.echo("No knowledge base found. Run `okforge init` first.")
+        return
+
+    config = load_config(state_dir(kb_dir) / "config.yaml")
+    actor = okf_actor(config.get("model", DEFAULT_CONFIG["model"]))
+    changed = okf_migrate(kb_dir / "wiki", actor, dry_run=dry_run)
+
+    if as_json:
+        click.echo(
+            json.dumps(
+                {"changed": changed, "count": len(changed), "actor": actor, "dry_run": dry_run},
+                ensure_ascii=False,
+            )
+        )
+        return
+    verb = "would migrate" if dry_run else "migrated"
+    click.echo(f"OKF v0.1 → v0.2: {verb} {len(changed)} page(s) (generated.by = {actor})")
+    if dry_run:
+        for rel in changed[:20]:
+            click.echo(f"  - {rel}")
+        if len(changed) > 20:
+            click.echo(f"  … and {len(changed) - 20} more")
+
+
 # ---------------------------------------------------------------------------
 # feedback
 # ---------------------------------------------------------------------------

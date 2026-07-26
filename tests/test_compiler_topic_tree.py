@@ -10,6 +10,7 @@ def test_write_concept_into_topic_dir(tmp_path):
         "# self-attention\n",
         "summaries/doc.md",
         is_update=False,
+        actor="okforge/test-model",
         brief="q attends k",
         topic_dir=wiki / "concepts" / "attention",
     )

@@ -248,9 +248,11 @@ def convert_document(
         # OKF conformance: every .md in the bundle carries typed frontmatter.
         # Consumers that feed this file to an LLM strip it (frontmatter.body).
         if not markdown.startswith("---\n"):
+            # No LLM touches a converted source, so the OKF §7 actor is a
+            # ``process:``, not a model.
             fm_lines = [
                 frontmatter.kv_line("type", "Source"),
-                *frontmatter.okf_meta_lines(doc_name),
+                *frontmatter.okf_meta_lines(doc_name, frontmatter.CONVERT_ACTOR),
             ]
             markdown = frontmatter.block(fm_lines) + markdown
         atomic_write_text(dest_md, markdown)

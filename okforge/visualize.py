@@ -37,7 +37,10 @@ def build_graph(wiki_dir: Path) -> dict:
             desc = fm.get("description")
             desc = desc.strip() if isinstance(desc, str) else ""
             srcs = fm.get("sources")
-            srcs = [str(s) for s in srcs] if isinstance(srcs, list) else []
+            # OKF §5.1 entries are ``{id, resource}`` mappings; wikis written
+            # before the v0.2 migration carry bare strings. Both resolve to a
+            # path — a blanket ``str()`` would label the node ``{'id': …}``.
+            srcs = [frontmatter.source_resource(s) for s in srcs] if isinstance(srcs, list) else []
             ft = fm.get(
                 "full_text"
             )  # summaries record their origin document here, not in `sources`
