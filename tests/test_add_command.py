@@ -271,3 +271,103 @@ class TestAddCommand:
         new_entries = [m for m in hashes.values() if m.get("doc_name") == "notes"]
         assert len(new_entries) == 1  # …exactly one entry survives
         assert new_entries[0]["path"]  # with path identity persisted
+
+
+class TestAddExitCode:
+    """`add` must report failure through its exit code.
+
+    The exit code is the only failure signal a non-interactive caller —
+    the webui job runner, a shell script, CI — receives. Returning 0 after
+    "[ERROR] Compilation failed" made a wholly failed ingest indistinguishable
+    from a clean one (okforge/okforge#2): four add jobs and a describe job all
+    reported done against a knowledge base with zero content.
+    """
+
+    def _kb(self, tmp_path):
+        (tmp_path / ".okforge").mkdir()
+        (tmp_path / ".okforge" / "config.yaml").write_text("model: gpt-4o-mini\n")
+        (tmp_path / ".okforge" / "hashes.json").write_text("{}")
+        (tmp_path / "raw").mkdir()
+        (tmp_path / "wiki" / "summaries").mkdir(parents=True)
+        (tmp_path / "wiki" / "sources").mkdir(parents=True)
+        (tmp_path / "wiki" / "log.md").write_text("")
+        return tmp_path
+
+    def _failing_compile(self):
+        async def fail(*args, **kwargs):
+            raise RuntimeError("LLM 503")
+
+        return fail
+
+    def test_single_file_failure_exits_1(self, tmp_path):
+        kb = self._kb(tmp_path)
+        doc = tmp_path / "doc.md"
+        doc.write_text("# Doc\n\nBody.\n")
+        runner = CliRunner()
+        with (
+            patch("okforge.cli._find_kb_dir", return_value=kb),
+            patch("okforge.agent.compiler.compile_short_doc", new=self._failing_compile()),
+            patch("okforge.cli.time.sleep"),
+        ):
+            result = runner.invoke(cli, ["add", str(doc)])
+        assert result.exit_code == 1, result.output
+        assert "[ERROR] Compilation failed" in result.output
+
+    def test_directory_reports_which_files_failed(self, tmp_path):
+        """A bad document must not strand the rest of the batch, but the
+        run as a whole still has to fail."""
+        kb = self._kb(tmp_path)
+        src = tmp_path / "docs"
+        src.mkdir()
+        (src / "a.md").write_text("# A\n\nAlpha.\n")
+        (src / "b.md").write_text("# B\n\nBeta.\n")
+        runner = CliRunner()
+        with (
+            patch("okforge.cli._find_kb_dir", return_value=kb),
+            patch("okforge.agent.compiler.compile_short_doc", new=self._failing_compile()),
+            patch("okforge.cli.time.sleep"),
+        ):
+            result = runner.invoke(cli, ["add", str(src)])
+        assert result.exit_code == 1, result.output
+        # Both were attempted, and both are named in the summary.
+        assert "2 of 2 file(s) failed" in result.output
+        assert "a.md" in result.output and "b.md" in result.output
+
+    def test_success_still_exits_0(self, tmp_path):
+        """Guard the other direction: the fix must not make a good ingest
+        look failed."""
+        kb = self._kb(tmp_path)
+        doc = tmp_path / "doc.md"
+        doc.write_text("# Doc\n\nBody.\n")
+
+        def close_coro(coro):
+            if hasattr(coro, "close"):
+                coro.close()
+
+        runner = CliRunner()
+        with (
+            patch("okforge.cli._find_kb_dir", return_value=kb),
+            patch("okforge.cli.asyncio.run", side_effect=close_coro),
+        ):
+            result = runner.invoke(cli, ["add", str(doc)])
+        assert result.exit_code == 0, result.output
+
+    def test_skip_exits_0(self, tmp_path):
+        """A dedup skip is not a failure."""
+        kb = self._kb(tmp_path)
+        doc = tmp_path / "doc.md"
+        doc.write_text("# Doc\n\nBody.\n")
+
+        def close_coro(coro):
+            if hasattr(coro, "close"):
+                coro.close()
+
+        runner = CliRunner()
+        with (
+            patch("okforge.cli._find_kb_dir", return_value=kb),
+            patch("okforge.cli.asyncio.run", side_effect=close_coro),
+        ):
+            runner.invoke(cli, ["add", str(doc)])
+            result = runner.invoke(cli, ["add", str(doc)])
+        assert result.exit_code == 0, result.output
+        assert "SKIP" in result.output

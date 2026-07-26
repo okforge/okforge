@@ -1079,6 +1079,8 @@ def add(ctx, path):
         # indexing has already succeeded but compilation didn't.
         if outcome == "skipped":
             fetched.unlink(missing_ok=True)
+        if outcome == "failed":
+            ctx.exit(1)
         return
 
     target = Path(path)
@@ -1097,9 +1099,19 @@ def add(ctx, path):
             return
         total = len(files)
         click.echo(f"Found {total} supported file(s) in {path}.")
+        # Keep going after a failure so one bad document doesn't strand the
+        # rest of a directory, but remember it: the exit code is the only
+        # failure signal a non-interactive caller (job runner, script, CI)
+        # gets, and reporting success here made a wholly failed ingest look
+        # like a clean one.
+        failed: list[str] = []
         for i, f in enumerate(files, 1):
             click.echo(f"\n[{i}/{total}] ", nl=False)
-            add_single_file(f, kb_dir)
+            if add_single_file(f, kb_dir) == "failed":
+                failed.append(f.name)
+        if failed:
+            click.echo(f"\n[ERROR] {len(failed)} of {total} file(s) failed: {', '.join(failed)}")
+            ctx.exit(1)
     else:
         if target.suffix.lower() not in SUPPORTED_EXTENSIONS:
             click.echo(
@@ -1107,7 +1119,8 @@ def add(ctx, path):
                 f"Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
             )
             return
-        add_single_file(target, kb_dir)
+        if add_single_file(target, kb_dir) == "failed":
+            ctx.exit(1)
 
 
 def _stream_to_tty() -> bool:
