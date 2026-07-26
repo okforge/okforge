@@ -11,9 +11,16 @@ PAGE_CONTENT_DIRS = ("summaries", "concepts", "entities")
 # tool so their exclusion policy can never drift.
 EXCLUDED_WIKI_FILES: frozenset[str] = frozenset({"AGENTS.md", "SCHEMA.md", "log.md"})
 
+# The OKF revision this wiki's bundle layout targets (declared in index.md).
+OKF_VERSION = "0.2"
+
 # Canonical empty index.md seed. Used by `okforge init` and the compiler's
 # lazy-create path so they never drift.
+#
+# The bundle-root index.md is the one place OKF permits frontmatter in a
+# reserved file, and `okf_version` is the only key allowed there (§8, §12).
 INDEX_SEED = (
+    f'---\nokf_version: "{OKF_VERSION}"\n---\n\n'
     "# Knowledge Base Index\n\n## Documents\n\n## Concepts\n\n## Entities\n\n## Explorations\n"
 )
 
@@ -66,6 +73,9 @@ Operations: ingest, query, lint
   `Concept`, or a capitalized entity subtype (e.g. `Organization`). This is the
   one field OKF requires; consumers use it for routing/filtering/presentation.
 - `description:` — a single-sentence one-liner (the field formerly named `brief`).
+- `sources:` — OKF provenance: `{id, resource}` entries naming the pages this
+  one derives from.
+- `generated:` — `{by, at}`: which actor wrote the content and when.
 - Do not include YAML frontmatter (---) in generated content; it is managed by code.
 """
 

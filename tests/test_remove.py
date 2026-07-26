@@ -502,7 +502,8 @@ def test_cli_remove_yes_executes_full_plan(kb_dir):
     assert "concepts/attention" in index
 
     # Log appended
-    assert "remove" in (kb_dir / "wiki" / "log.md").read_text()
+    # OKF §9 entries render the operation title-cased under a date heading.
+    assert "remove" in (kb_dir / "wiki" / "log.md").read_text().lower()
 
 
 def test_cli_remove_keep_raw_preserves_file(kb_dir):

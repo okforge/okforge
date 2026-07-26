@@ -312,7 +312,14 @@ def test_concept_writer_is_atomic_so_hardlink_rollback_restores(tmp_path):
     )
     # The compiler rewrites the concept page as part of the doc ingest. If this
     # write is in-place, the hardlink backup is corrupted and rollback fails.
-    _write_concept(kb_dir / "wiki", "topic", "rewritten body", "summaries/doc.md", is_update=True)
+    _write_concept(
+        kb_dir / "wiki",
+        "topic",
+        "rewritten body",
+        "summaries/doc.md",
+        is_update=True,
+        actor="okforge/test-model",
+    )
 
     snapshot.rollback()
     snapshot.discard_best_effort()

@@ -965,9 +965,17 @@ def _emit_links(content: str, own_dir: str, wiki_dir: Path) -> str:
 
 
 def _write_summary(
-    wiki_dir: Path, doc_name: str, summary: str, doc_type: str = "short", description: str = ""
+    wiki_dir: Path,
+    doc_name: str,
+    summary: str,
+    actor: str,
+    doc_type: str = "short",
+    description: str = "",
 ) -> None:
-    """Write summary page with frontmatter."""
+    """Write summary page with frontmatter.
+
+    ``actor`` is the OKF §7 identity recorded in ``generated.by``.
+    """
     parts = frontmatter.split(summary)
     if parts is not None:
         _, summary = parts
@@ -981,7 +989,7 @@ def _write_summary(
         fm_lines.append(_yaml_kv_line("description", description))
     fm_lines.append(f"doc_type: {doc_type}")
     fm_lines.append(_yaml_kv_line("full_text", f"sources/{doc_name}.{ext}"))
-    fm_lines.extend(frontmatter.okf_meta_lines(doc_name))
+    fm_lines.extend(frontmatter.okf_meta_lines(doc_name, actor))
     fm_block = "---\n" + "\n".join(fm_lines) + "\n---\n\n"
     atomic_write_text(summaries_dir / f"{doc_name}.md", fm_block + summary)
 
@@ -1001,12 +1009,36 @@ _yaml_list_line = frontmatter.list_line
 _parse_yaml_list_value = frontmatter.parse_list_value
 
 
+def _sources_line(paths: list[str]) -> str:
+    """Render the OKF §5.1 ``sources`` line from bundle-relative page paths.
+
+    Entries are ``{id, resource}`` mappings written flow-style, so the line
+    stays single-line and the ``sources:`` scanners below keep matching it.
+    """
+    return _yaml_list_line("sources", [frontmatter.okf_source_entry(p) for p in paths])
+
+
+def _parse_sources_line(line: str) -> list[str] | None:
+    """Resource paths from a ``sources:`` line, or None if it is not a list.
+
+    Normalising to plain paths on read is what lets the rest of this module
+    keep treating sources as a list of strings: a wiki written before the
+    v0.2 migration carries bare strings, one written after carries mappings,
+    and both arrive here as paths.
+    """
+    items = _parse_yaml_list_value(line)
+    if items is None:
+        return None
+    return [frontmatter.source_resource(x) for x in items]
+
+
 def _write_concept(
     wiki_dir: Path,
     name: str,
     content: str,
     source_file: str,
     is_update: bool,
+    actor: str,
     brief: str = "",
     topic_dir: Path | None = None,
 ) -> None:
@@ -1014,7 +1046,8 @@ def _write_concept(
 
     When ``topic_dir`` is given (topic-tree mode) the page is written there
     instead of the flat ``concepts/`` directory; the basename is unchanged so
-    name-based wikilinks still resolve.
+    name-based wikilinks still resolve. ``actor`` is the OKF §7 identity
+    recorded in ``generated.by``.
     """
     base_dir = topic_dir if topic_dir is not None else (wiki_dir / "concepts")
     base_dir.mkdir(parents=True, exist_ok=True)
@@ -1050,18 +1083,18 @@ def _write_concept(
             recovered: list[str] = []
             for ln in existing.split("\n"):
                 if ln.lstrip().startswith("sources:"):
-                    parsed = _parse_yaml_list_value(ln)
+                    parsed = _parse_sources_line(ln)
                     if parsed:
                         recovered = parsed
                     break
             merged = [source_file] + [s for s in recovered if s != source_file]
             fm_lines = [
                 _yaml_kv_line("type", "Concept"),
-                _yaml_list_line("sources", merged),
+                _sources_line(merged),
             ]
             if brief:
                 fm_lines.append(_yaml_kv_line("description", brief))
-            fm_lines.extend(frontmatter.okf_meta_lines(name))
+            fm_lines.extend(frontmatter.okf_meta_lines(name, actor))
             existing = frontmatter.block(fm_lines) + clean
             atomic_write_text(path, existing)
             return
@@ -1074,7 +1107,7 @@ def _write_concept(
                 fm_block = _set_fm_line(fm_block, "description", brief)
             # Drop legacy brief: lines (migrated to description:).
             fm_block = frontmatter.drop_line(fm_block, "brief")
-            fm_block = frontmatter.refresh_okf_meta(fm_block, name)
+            fm_block = frontmatter.refresh_okf_meta(fm_block, name, actor)
             existing = fm_block + body
         atomic_write_text(path, existing)
     else:
@@ -1083,11 +1116,11 @@ def _write_concept(
             content = clean_parts[1].lstrip("\n")
         fm_lines = [
             _yaml_kv_line("type", "Concept"),
-            _yaml_list_line("sources", [source_file]),
+            _sources_line([source_file]),
         ]
         if brief:
             fm_lines.append(_yaml_kv_line("description", brief))
-        fm_lines.extend(frontmatter.okf_meta_lines(name))
+        fm_lines.extend(frontmatter.okf_meta_lines(name, actor))
         fm_block = "---\n" + "\n".join(fm_lines) + "\n---\n\n"
         atomic_write_text(path, fm_block + content)
 
@@ -1098,6 +1131,7 @@ def _write_entity(
     content: str,
     source_file: str,
     is_update: bool,
+    actor: str,
     brief: str = "",
     type_: str = "other",
     aliases: list[str] | None = None,
@@ -1108,6 +1142,7 @@ def _write_entity(
     enum, capitalized on write), ``description`` (one-liner), and optional
     ``aliases`` (list, omitted when empty). On update the new source is prepended and the body replaced
     with the LLM rewrite; ``type`` is preserved from the new write.
+    ``actor`` is the OKF §7 identity recorded in ``generated.by``.
     """
     entities_dir = wiki_dir / "entities"
     entities_dir.mkdir(parents=True, exist_ok=True)
@@ -1123,13 +1158,13 @@ def _write_entity(
     clean = _emit_links(clean, "entities", wiki_dir)
 
     def _build_entity_frontmatter(sources: list[str]) -> str:
-        fm_lines = [_yaml_list_line("sources", sources)]
+        fm_lines = [_sources_line(sources)]
         fm_lines.append(_yaml_kv_line("type", (type_ or "other").title()))
         if brief:
             fm_lines.append(_yaml_kv_line("description", brief))
         if aliases:
             fm_lines.append(_yaml_list_line("aliases", aliases))
-        fm_lines.extend(frontmatter.okf_meta_lines(name))
+        fm_lines.extend(frontmatter.okf_meta_lines(name, actor))
         return "---\n" + "\n".join(fm_lines) + "\n---\n\n"
 
     if is_update and path.exists():
@@ -1144,7 +1179,7 @@ def _write_entity(
             # Drop any legacy ``brief:`` key (migrated to ``description:``),
             # mirroring _write_concept's update path.
             fm_block = frontmatter.drop_line(fm_block, "brief")
-            fm_block = frontmatter.refresh_okf_meta(fm_block, name)
+            fm_block = frontmatter.refresh_okf_meta(fm_block, name, actor)
             existing = fm_block + "\n" + clean
         else:
             # Malformed/absent frontmatter (opening ``---`` with no closing
@@ -1155,7 +1190,7 @@ def _write_entity(
             recovered: list[str] = []
             for ln in existing.split("\n"):
                 if ln.lstrip().startswith("sources:"):
-                    parsed = _parse_yaml_list_value(ln)
+                    parsed = _parse_sources_line(ln)
                     if parsed:
                         recovered = parsed
                     break
@@ -1178,7 +1213,7 @@ def _prepend_source_to_frontmatter(text: str, source_file: str) -> str:
     the frontmatter is malformed (no closing ``---``).
     """
     if not text.startswith("---"):
-        return f"---\n{_yaml_list_line('sources', [source_file])}\n---\n\n" + text
+        return f"---\n{_sources_line([source_file])}\n---\n\n" + text
 
     parts = frontmatter.split(text)
     if parts is None:
@@ -1198,16 +1233,16 @@ def _prepend_source_to_frontmatter(text: str, source_file: str) -> str:
     for i, line in enumerate(fm_lines):
         if not line.lstrip().startswith("sources:"):
             continue
-        items = _parse_yaml_list_value(line)
+        items = _parse_sources_line(line)
         if items is None:
             return text
         if source_file in items:
             return text
         items.insert(0, source_file)
-        fm_lines[i] = _yaml_list_line("sources", items)
+        fm_lines[i] = _sources_line(items)
         return "\n".join(fm_lines) + closing + body
 
-    fm_lines.insert(1, _yaml_list_line("sources", [source_file]))
+    fm_lines.insert(1, _sources_line([source_file]))
     return "\n".join(fm_lines) + closing + body
 
 
@@ -1239,13 +1274,13 @@ def _remove_source_from_frontmatter(text: str, source_file: str) -> tuple[str, b
     for i, line in enumerate(fm_lines):
         if not line.lstrip().startswith("sources:"):
             continue
-        items = _parse_yaml_list_value(line)
+        items = _parse_sources_line(line)
         if items is None:
             return text, False
         if source_file not in items:
             return text, False
         items.remove(source_file)
-        fm_lines[i] = _yaml_list_line("sources", items)
+        fm_lines[i] = _sources_line(items)
         return "\n".join(fm_lines) + closing + body, len(items) == 0
 
     return text, False
@@ -1458,9 +1493,10 @@ def scan_affected_pages(pages_dir: Path, source_file_marker: str) -> list[tuple[
 
     Used by the ``okforge remove`` dry-run preview. Lives here, beside
     ``remove_doc_from_concept_pages`` / ``remove_doc_from_entity_pages`` and
-    sharing ``_parse_yaml_list_value`` with them, so the preview and the
-    executor can't drift apart on how the sources list is parsed (a hand-rolled
-    comma-split here once kept the JSON quotes and matched nothing).
+    resolving entries through ``frontmatter.source_resource`` exactly as they
+    do, so the preview and the executor can't drift apart on how the sources
+    list is read (a hand-rolled comma-split here once kept the JSON quotes and
+    matched nothing; a blanket ``str()`` would do the same to a v0.2 mapping).
     """
     affected: list[tuple[str, int]] = []
     if not pages_dir.is_dir():
@@ -1473,7 +1509,7 @@ def scan_affected_pages(pages_dir: Path, source_file_marker: str) -> list[tuple[
         sources = fm_dict.get("sources")
         if not isinstance(sources, list):
             continue
-        items = [str(x) for x in sources]
+        items = [frontmatter.source_resource(x) for x in sources]
         if source_file_marker in items:
             affected.append((path.stem, max(len(items) - 1, 0)))
     return affected
@@ -1666,6 +1702,8 @@ async def _compile_concepts(
     wikilinks reflect the actual concept pages on disk.
     """
     source_file = f"summaries/{doc_name}.md"
+    # OKF §7 actor recorded in every page's ``generated.by`` this compile writes.
+    actor = frontmatter.okf_actor(model)
 
     # Effective entity types for this compile (config-driven; defaults to the
     # canonical enum when unset, keeping behavior byte-identical to today).
@@ -1719,7 +1757,7 @@ async def _compile_concepts(
                 doc_name,
                 ghosts[:5],
             )
-        _write_summary(wiki_dir, doc_name, cleaned, description=doc_brief)
+        _write_summary(wiki_dir, doc_name, cleaned, actor, description=doc_brief)
 
     try:
         parsed = _parse_json(plan_raw)
@@ -2109,7 +2147,9 @@ async def _compile_concepts(
             )
         safe = _sanitize_concept_name(name)
         is_update = (wiki_dir / "entities" / f"{safe}.md").exists()
-        _write_entity(wiki_dir, name, cleaned, source_file, is_update, brief=brief, type_=etype)
+        _write_entity(
+            wiki_dir, name, cleaned, source_file, is_update, actor, brief=brief, type_=etype
+        )
         entity_names.append(safe)
         entity_meta[safe] = (etype, brief)
 
@@ -2195,7 +2235,7 @@ async def _compile_concepts(
                     doc_name,
                     fallback_ghosts[:5],
                 )
-        _write_summary(wiki_dir, doc_name, final_summary, description=doc_brief)
+        _write_summary(wiki_dir, doc_name, final_summary, actor, description=doc_brief)
 
     # --- Write concept pages to disk ---
     for name, page_content, is_update, brief in pending_writes:
@@ -2205,6 +2245,7 @@ async def _compile_concepts(
             page_content,
             source_file,
             is_update,
+            actor,
             brief=brief,
         )
 

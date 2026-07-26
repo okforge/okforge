@@ -39,11 +39,13 @@ def test_init_creates_structure(tmp_path):
         hashes = json.loads((cwd / ".okforge" / "hashes.json").read_text())
         assert hashes == {}
 
-        # index.md header
+        # index.md header. The bundle-root index.md is the one reserved file
+        # OKF lets carry frontmatter, and okf_version is the only key allowed
+        # there (§8, §12).
         index_content = (cwd / "wiki" / "index.md").read_text()
-        assert (
-            index_content
-            == "# Knowledge Base Index\n\n## Documents\n\n## Concepts\n\n## Entities\n\n## Explorations\n"
+        assert index_content == (
+            '---\nokf_version: "0.2"\n---\n\n'
+            "# Knowledge Base Index\n\n## Documents\n\n## Concepts\n\n## Entities\n\n## Explorations\n"
         )
 
 

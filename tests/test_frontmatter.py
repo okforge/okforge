@@ -106,26 +106,65 @@ class TestParseListValue:
 
 
 class TestOkfMeta:
-    def test_okf_meta_lines_title_and_iso_timestamp(self):
+    def test_okf_meta_lines_title_and_generated(self):
         from okforge import frontmatter
 
-        lines = frontmatter.okf_meta_lines("My Doc")
+        lines = frontmatter.okf_meta_lines("My Doc", "okforge/gpt-5.4")
         assert lines[0] == 'title: "My Doc"'
-        assert lines[1].startswith('timestamp: "')
+        assert lines[1].startswith("generated: {")
         # ISO-8601 with offset, e.g. 2026-07-05T14:03:22-04:00
         import re
 
         assert re.search(
-            r'timestamp: "\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}"', lines[1]
+            r'"at": "\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}"',
+            lines[1],
         )
+        assert '"by": "okforge/gpt-5.4"' in lines[1]
+
+    def test_generated_line_is_single_line_and_parses_as_yaml(self):
+        """The flow mapping is what keeps the line-oriented helpers working."""
+        import yaml
+
+        from okforge import frontmatter
+
+        line = frontmatter.okf_generated_line("human:dana")
+        assert "\n" not in line
+        parsed = yaml.safe_load(line)
+        assert parsed["generated"]["by"] == "human:dana"
 
     def test_refresh_okf_meta_updates_existing_block(self):
         from okforge import frontmatter
 
         fm = '---\ntype: "Concept"\ntitle: "old"\ntimestamp: "2020-01-01T00:00:00+00:00"\n---\n'
-        out = frontmatter.refresh_okf_meta(fm, "new-title")
+        out = frontmatter.refresh_okf_meta(fm, "new-title", "okforge/gpt-5.4")
         assert 'title: "new-title"' in out
         assert "2020-01-01" not in out
+        # The retired v0.1 field must not survive alongside generated (§13.1).
+        assert "timestamp:" not in out
+        assert "generated: {" in out
+
+    def test_okf_actor_strips_litellm_provider_prefix(self):
+        from okforge import frontmatter
+
+        assert frontmatter.okf_actor("openai/Qwen3.6-27B-MTP") == "okforge/Qwen3.6-27B-MTP"
+        assert frontmatter.okf_actor("gpt-5.4") == "okforge/gpt-5.4"
+        assert frontmatter.okf_actor("") == "okforge"
+
+    def test_source_entry_and_resource_round_trip(self):
+        from okforge import frontmatter
+
+        entry = frontmatter.okf_source_entry("summaries/doc_p1_9.md")
+        assert entry == {"id": "doc_p1_9", "resource": "summaries/doc_p1_9.md"}
+        assert frontmatter.source_resource(entry) == "summaries/doc_p1_9.md"
+        # v0.1 bare strings still resolve, so unmigrated wikis keep working.
+        assert frontmatter.source_resource("summaries/doc_p1_9.md") == "summaries/doc_p1_9.md"
+
+    def test_parse_list_value_preserves_mappings(self):
+        from okforge import frontmatter
+
+        line = frontmatter.list_line("sources", [frontmatter.okf_source_entry("summaries/a.md")])
+        parsed = frontmatter.parse_list_value(line)
+        assert parsed == [{"id": "a", "resource": "summaries/a.md"}]
 
     def test_body_strips_frontmatter(self):
         from okforge import frontmatter
