@@ -8,7 +8,7 @@ Everything that controls how okforge talks to your LLM lives in two places:
 ## Install
 
 ```bash
-pip install "git+https://github.com/designcomputer/okforge@main"
+pip install "git+https://github.com/okforge/okforge@main"
 ```
 
 okforge pins a **pre-release** of its PageIndex dependency
@@ -16,8 +16,8 @@ okforge pins a **pre-release** of its PageIndex dependency
 can't resolve `pageindex`, allow pre-releases:
 
 ```bash
-uv tool install "git+https://github.com/designcomputer/okforge@main" --prerelease=allow   # uv
-pip install --pre "git+https://github.com/designcomputer/okforge@main"                     # pip
+uv tool install "git+https://github.com/okforge/okforge@main" --prerelease=allow   # uv
+pip install --pre "git+https://github.com/okforge/okforge@main"                     # pip
 ```
 
 If `openkb` isn't found *after* a successful install, the console-script directory

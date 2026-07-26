@@ -152,7 +152,7 @@ def test_feedback_one_liner_opens_browser_with_url():
     assert result.exit_code == 0, result.output
     mock_open.assert_called_once()
     called_url = mock_open.call_args[0][0]
-    assert called_url.startswith("https://github.com/designcomputer/okforge/issues/new?")
+    assert called_url.startswith("https://github.com/okforge/okforge/issues/new?")
     # The URL is also printed so the user has a copy if auto-open fails.
     assert called_url in result.output
 

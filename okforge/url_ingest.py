@@ -28,7 +28,7 @@ from urllib.parse import unquote, urlparse
 
 import click
 
-_USER_AGENT = "okforge/url-fetcher (+https://github.com/designcomputer/okforge)"
+_USER_AGENT = "okforge/url-fetcher (+https://github.com/okforge/okforge)"
 _TIMEOUT_SECONDS = 30
 _CHUNK_BYTES = 64 * 1024
 _SNIFF_BYTES = 512
