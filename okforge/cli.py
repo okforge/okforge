@@ -2513,7 +2513,7 @@ def okf_migrate_cmd(ctx, dry_run, as_json):
 # feedback
 # ---------------------------------------------------------------------------
 
-_FEEDBACK_REPO = "designcomputer/okforge"
+_FEEDBACK_REPO = "okforge/okforge"
 _FEEDBACK_TYPES = ("bug", "feature", "question", "other")
 _FEEDBACK_LABEL_MAP = {
     "bug": "bug",
