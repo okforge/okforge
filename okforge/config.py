@@ -207,6 +207,41 @@ def resolve_timeout(config: dict) -> float | None:
     return value
 
 
+def resolve_compile_concurrency(config: dict) -> int | None:
+    """Resolve the optional ``compile_concurrency:`` key to a positive int.
+
+    Caps how many concept/entity LLM calls the compiler fires at once per
+    document. Returns ``None`` (caller falls back to its own default) when
+    absent or invalid; warns when present but unusable. Lower this for
+    local/self-hosted inference servers that can't handle several large-context
+    requests in parallel (e.g. a single-slot llama.cpp/unsloth server).
+    """
+    raw = config.get("compile_concurrency")
+    if raw is None:
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, (int, float, str)):
+        logger.warning(
+            "config: 'compile_concurrency' must be a positive integer, got %s — ignoring it.",
+            type(raw).__name__,
+        )
+        return None
+    try:
+        numeric = float(raw)
+    except (TypeError, ValueError):
+        logger.warning(
+            "config: 'compile_concurrency' must be a positive integer, got %r — ignoring it.",
+            raw,
+        )
+        return None
+    if not math.isfinite(numeric) or numeric != int(numeric) or int(numeric) <= 0:
+        logger.warning(
+            "config: 'compile_concurrency' must be a positive integer, got %r — ignoring it.",
+            raw,
+        )
+        return None
+    return int(numeric)
+
+
 def resolve_litellm_settings(config: dict) -> dict[str, Any]:
     """Resolve the optional ``litellm:`` mapping of LiteLLM module settings.
 

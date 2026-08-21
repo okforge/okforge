@@ -1282,6 +1282,38 @@ class TestCompileShortDoc:
         assert (wiki / "summaries" / "doc.md").exists()
 
     @pytest.mark.asyncio
+    async def test_compile_concurrency_config_overrides_default(self, tmp_path, monkeypatch):
+        """The KB's ``compile_concurrency:`` config key should reach
+        ``_compile_concepts`` as ``max_concurrency`` when the caller doesn't
+        pass one explicitly (#4)."""
+        wiki = tmp_path / "wiki"
+        (wiki / "sources").mkdir(parents=True)
+        (wiki / "summaries").mkdir(parents=True)
+        (wiki / "index.md").write_text(
+            "# Index\n\n## Documents\n\n## Concepts\n",
+            encoding="utf-8",
+        )
+        source_path = wiki / "sources" / "doc.md"
+        source_path.write_text("Content", encoding="utf-8")
+        (tmp_path / ".okforge").mkdir()
+        (tmp_path / ".okforge" / "config.yaml").write_text(
+            "compile_concurrency: 2\n", encoding="utf-8"
+        )
+
+        captured: dict = {}
+
+        async def fake_compile_concepts(*args, **kwargs):
+            captured["max_concurrency"] = args[7] if len(args) > 7 else kwargs["max_concurrency"]
+
+        monkeypatch.setattr("okforge.agent.compiler._compile_concepts", fake_compile_concepts)
+
+        with patch("okforge.agent.compiler.litellm") as mock_litellm:
+            mock_litellm.completion = MagicMock(side_effect=_mock_completion(["Plain summary"]))
+            await compile_short_doc("doc", source_path, tmp_path, "gpt-4o-mini")
+
+        assert captured["max_concurrency"] == 2
+
+    @pytest.mark.asyncio
     async def test_paged_sources_json_switches_to_page_cited_prompt(self, tmp_path):
         # A wiki/sources/<doc>.json page array (copied there by the converter
         # from a sibling .pages.json) should make the summary prompt present

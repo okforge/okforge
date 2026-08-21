@@ -2293,18 +2293,24 @@ async def compile_short_doc(
     source_path: Path,
     kb_dir: Path,
     model: str,
-    max_concurrency: int = DEFAULT_COMPILE_CONCURRENCY,
+    max_concurrency: int | None = None,
 ) -> None:
     """Compile a short document using a multi-step LLM pipeline with caching.
 
     Step 1: Build base context A (schema + doc content), generate summary.
     Steps 2-4: Delegated to ``_compile_concepts``.
+
+    ``max_concurrency`` defaults to the KB's ``compile_concurrency:`` config
+    key (falling back to ``DEFAULT_COMPILE_CONCURRENCY`` when unset) unless a
+    caller passes it explicitly.
     """
-    from okforge.config import load_config
+    from okforge.config import load_config, resolve_compile_concurrency
 
     config = load_config(state_dir(kb_dir) / "config.yaml")
     language: str = config.get("language", "en")
     entity_types = resolve_entity_types(config)
+    if max_concurrency is None:
+        max_concurrency = resolve_compile_concurrency(config) or DEFAULT_COMPILE_CONCURRENCY
 
     wiki_dir = kb_dir / "wiki"
     schema_md = get_agents_md(wiki_dir)
@@ -2400,18 +2406,24 @@ async def compile_long_doc(
     kb_dir: Path,
     model: str,
     doc_description: str = "",
-    max_concurrency: int = DEFAULT_COMPILE_CONCURRENCY,
+    max_concurrency: int | None = None,
 ) -> None:
     """Compile a long (PageIndex) document's concepts and index.
 
     The summary page is already written by the indexer. This function
     generates concept pages and updates the index.
+
+    ``max_concurrency`` defaults to the KB's ``compile_concurrency:`` config
+    key (falling back to ``DEFAULT_COMPILE_CONCURRENCY`` when unset) unless a
+    caller passes it explicitly.
     """
-    from okforge.config import load_config
+    from okforge.config import load_config, resolve_compile_concurrency
 
     config = load_config(state_dir(kb_dir) / "config.yaml")
     language: str = config.get("language", "en")
     entity_types = resolve_entity_types(config)
+    if max_concurrency is None:
+        max_concurrency = resolve_compile_concurrency(config) or DEFAULT_COMPILE_CONCURRENCY
 
     wiki_dir = kb_dir / "wiki"
     schema_md = get_agents_md(wiki_dir)

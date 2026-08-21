@@ -86,6 +86,17 @@ just pay reasoning-token cost and latency on every call. Measured on
 `qwen3.6-27b` via OpenRouter: a trivial completion drops from 199
 tokens to 2 with the block in place.
 
+Concept and entity generation fire up to 5 LLM calls in parallel per
+document by default. A hosted API absorbs that fine, but a single local
+inference server (llama.cpp, unsloth, vLLM with one worker) can run out
+of parallel-slot/KV-cache capacity under 5 concurrent large-context
+requests and start returning opaque `400` errors. Lower it in the KB's
+`config.yaml`:
+
+```yaml
+compile_concurrency: 1
+```
+
 ### Ingesting scans and non-text documents
 
 `okforge add` accepts Markdown, plain text, and PDF directly. Anything

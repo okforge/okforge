@@ -5,6 +5,7 @@ from okforge.config import (
     get_extra_headers,
     get_timeout,
     load_config,
+    resolve_compile_concurrency,
     resolve_extra_headers,
     resolve_litellm_settings,
     resolve_timeout,
@@ -159,6 +160,35 @@ def test_timeout_stash_roundtrip_and_reset():
     assert get_timeout() == 1200.0
     set_timeout(None)
     assert get_timeout() is None
+
+
+# --- compile_concurrency -------------------------------------------------------
+
+
+def test_resolve_compile_concurrency_absent_returns_none():
+    assert resolve_compile_concurrency({}) is None
+
+
+def test_resolve_compile_concurrency_int_and_numeric_string():
+    assert resolve_compile_concurrency({"compile_concurrency": 1}) == 1
+    assert resolve_compile_concurrency({"compile_concurrency": "3"}) == 3
+
+
+def test_resolve_compile_concurrency_rejects_non_positive():
+    assert resolve_compile_concurrency({"compile_concurrency": 0}) is None
+    assert resolve_compile_concurrency({"compile_concurrency": -1}) is None
+
+
+def test_resolve_compile_concurrency_rejects_bool():
+    assert resolve_compile_concurrency({"compile_concurrency": True}) is None
+
+
+def test_resolve_compile_concurrency_rejects_non_integer():
+    assert resolve_compile_concurrency({"compile_concurrency": 1.5}) is None
+    assert resolve_compile_concurrency({"compile_concurrency": "soon"}) is None
+    assert resolve_compile_concurrency({"compile_concurrency": [1]}) is None
+    assert resolve_compile_concurrency({"compile_concurrency": float("inf")}) is None
+    assert resolve_compile_concurrency({"compile_concurrency": float("nan")}) is None
 
 
 def test_resolve_litellm_settings_absent_returns_empty():
