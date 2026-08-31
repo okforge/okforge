@@ -559,10 +559,10 @@ async def _handle_slash_skill(arg: str, kb_dir: Path, style: Style) -> None:
         return
 
     # Load model from KB config
-    from okforge.config import DEFAULT_CONFIG, load_config
+    from okforge.config import load_config, resolve_model
 
     config = load_config(state_dir(kb_dir) / "config.yaml")
-    model = config.get("model", DEFAULT_CONFIG["model"])
+    model = resolve_model(config)
 
     from okforge.skill.generator import Generator
 
@@ -690,10 +690,10 @@ async def _handle_slash_deck(arg: str, kb_dir: Path, style: Style) -> None:
         return
 
     # Load model from KB config
-    from okforge.config import DEFAULT_CONFIG, load_config
+    from okforge.config import load_config, resolve_model
 
     config = load_config(state_dir(kb_dir) / "config.yaml")
-    model = config.get("model", DEFAULT_CONFIG["model"])
+    model = resolve_model(config)
 
     from okforge.deck.creator import DEFAULT_DECK_SKILL
     from okforge.skill.generator import Generator
@@ -856,10 +856,10 @@ async def _handle_slash_critique(arg: str, kb_dir: Path, style: Style) -> None:
         SkillNotFoundError,
         run_skill,
     )
-    from okforge.config import DEFAULT_CONFIG, load_config
+    from okforge.config import load_config, resolve_model
 
     config = load_config(state_dir(kb_dir) / "config.yaml")
-    model = config.get("model", DEFAULT_CONFIG["model"])
+    model = resolve_model(config)
 
     # Path passed to the skill is relative to kb_dir (the agent's cwd
     # conceptually). The skill's read_file/write_file tools operate

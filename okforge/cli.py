@@ -65,6 +65,8 @@ from okforge.config import (
     resolve_timeout,
     set_timeout,
     resolve_litellm_settings,
+    resolve_model,
+    split_model,
     state_dir,
 )
 from okforge.converter import _registry_path, _sanitize_stem, convert_document
@@ -107,12 +109,8 @@ def _extract_provider(model: str) -> str | None:
     ``model`` uses ``provider/model`` LiteLLM format.
     OpenAI models can omit the prefix; default to ``"openai"``.
     """
-    model = model.strip()
-    if not model:
-        return None
-    if "/" in model:
-        return model.split("/")[0].lower()
-    return "openai"
+    provider, _ = split_model(model)
+    return provider or None
 
 
 def _apply_litellm_settings(settings: dict) -> None:
@@ -483,7 +481,7 @@ def _add_single_file_locked(
     kb_state_dir = state_dir(kb_dir)
     config = load_config(kb_state_dir / "config.yaml")
     _setup_llm_key(kb_dir)
-    model: str = config.get("model", DEFAULT_CONFIG["model"])
+    model: str = resolve_model(config)
 
     staging_dir = _staging_dir_for(kb_dir, file_path) if stage else None
     snapshot: MutationSnapshot | None = None
@@ -1156,7 +1154,7 @@ def query(ctx, question, save, raw):
 
     config = load_config(state_dir(kb_dir) / "config.yaml")
     _setup_llm_key(kb_dir)
-    model: str = config.get("model", DEFAULT_CONFIG["model"])
+    model: str = resolve_model(config)
 
     stream = _stream_to_tty()
     try:
@@ -1254,7 +1252,7 @@ def mcp(ctx, transport, host, port):
     with contextlib.redirect_stdout(sys.stderr):
         config = load_config(state_dir(kb_dir) / "config.yaml")
         _setup_llm_key(kb_dir)
-    model: str = config.get("model", DEFAULT_CONFIG["model"])
+    model: str = resolve_model(config)
 
     server = build_mcp_server(kb_dir, model, host=host, port=port)
     server.run(transport="stdio" if transport == "stdio" else "streamable-http")
@@ -1778,7 +1776,7 @@ def recompile(ctx, doc_name, all_docs, dry_run, yes, refresh_schema):
 
     _setup_llm_key(kb_dir)
     config = load_config(kb_state_dir / "config.yaml")
-    model: str = config.get("model", DEFAULT_CONFIG["model"])
+    model: str = resolve_model(config)
 
     # Import lazily and reference via the module so tests can patch
     # ``okforge.agent.compiler.compile_*`` and see the call.
@@ -1949,7 +1947,7 @@ def chat(ctx, resume, list_sessions_flag, delete_id, no_color, raw):
             return
         session = load_session(kb_dir, resolved)
     else:
-        model: str = config.get("model", DEFAULT_CONFIG["model"])
+        model: str = resolve_model(config)
         language: str = config.get("language", "en")
         session = ChatSession.new(kb_dir, model, language)
 
@@ -2015,7 +2013,7 @@ async def run_lint(kb_dir: Path) -> Path | None:
 
         config = load_config(kb_state_dir / "config.yaml")
         _setup_llm_key(kb_dir)
-        model: str = config.get("model", DEFAULT_CONFIG["model"])
+        model: str = resolve_model(config)
 
         click.echo("Running structural lint...")
         structural_report = run_structural_lint(kb_dir)
@@ -2089,7 +2087,7 @@ def reindex(ctx):
         )
         return
     _setup_llm_key(kb_dir)
-    model = config.get("model", DEFAULT_CONFIG["model"])
+    model = resolve_model(config)
     from okforge.topic_tree_llm import make_cluster, make_summarize
 
     concepts_root = kb_dir / "wiki" / "concepts"
@@ -2502,6 +2500,9 @@ def okf_migrate_cmd(ctx, dry_run, as_json):
         return
 
     config = load_config(state_dir(kb_dir) / "config.yaml")
+    # Deliberately NOT resolve_model(): `generated.by` records the model that
+    # actually wrote these pages, so a live fallback substitution would stamp
+    # the wrong provenance — and this command makes no LLM call to fall back for.
     actor = okf_actor(config.get("model", DEFAULT_CONFIG["model"]))
     changed = okf_migrate(kb_dir / "wiki", actor, dry_run=dry_run)
 
@@ -2729,7 +2730,7 @@ def skill_new(ctx, name, intent, yes_flag):
         click.echo(f"[ERROR] {exc}", err=True)
         ctx.exit(1)
     config = load_config(state_dir(kb_dir) / "config.yaml")
-    model = config.get("model", DEFAULT_CONFIG["model"])
+    model = resolve_model(config)
 
     # Overwrite handling (CLI-specific). Done AFTER key/config so a
     # missing key doesn't wipe the user's existing skill output.
@@ -3053,7 +3054,7 @@ def skill_eval(ctx, name, save_flag, eval_set_path, count):
         click.echo(f"[ERROR] {exc}", err=True)
         ctx.exit(1)
     config = load_config(state_dir(kb_dir) / "config.yaml")
-    model = config.get("model", DEFAULT_CONFIG["model"])
+    model = resolve_model(config)
 
     eval_set: list[EvalPrompt] | None = None
     if eval_set_path:
@@ -3218,7 +3219,7 @@ def deck_new(ctx, name, intent, yes_flag, critique_flag, skill_name):
         click.echo(f"[ERROR] {exc}", err=True)
         ctx.exit(1)
     config = load_config(state_dir(kb_dir) / "config.yaml")
-    model = config.get("model", DEFAULT_CONFIG["model"])
+    model = resolve_model(config)
 
     # Overwrite handling — inline because okforge.skill.workspace.save_iteration
     # is hard-wired to skill paths (uses skill_dir / skill_workspace_dir from
