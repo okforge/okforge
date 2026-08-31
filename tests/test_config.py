@@ -8,10 +8,12 @@ from okforge.config import (
     resolve_compile_concurrency,
     resolve_extra_headers,
     resolve_litellm_settings,
+    resolve_model,
     resolve_timeout,
     save_config,
     set_extra_headers,
     set_timeout,
+    split_model,
 )
 
 
@@ -227,3 +229,114 @@ def test_resolve_litellm_settings_warns_on_non_string_key(caplog):
     with caplog.at_level(logging.WARNING, logger="okforge.config"):
         resolve_litellm_settings({"litellm": {5: "x", "drop_params": True}})
     assert "non-string key" in caplog.text
+
+
+# --------------------------------------------------------------- model
+
+
+def _fake_lister(*ids):
+    """Stand in for list_endpoint_models, recording how often it was called."""
+    calls = []
+
+    def lister(api_base, timeout=None):
+        calls.append(api_base)
+        return list(ids)
+
+    lister.calls = calls
+    return lister
+
+
+def _patch_lister(monkeypatch, lister):
+    import okforge.config as cfg
+
+    cfg.reset_model_resolution_cache()
+    monkeypatch.setattr(cfg, "list_endpoint_models", lister)
+
+
+BASE = "http://host:8080/v1"
+
+
+def test_split_model_bare_name_defaults_to_openai():
+    assert split_model("Qwen3.8-27B-MTP") == ("openai", "Qwen3.8-27B-MTP")
+
+
+def test_split_model_keeps_nested_model_name():
+    assert split_model("openrouter/qwen/qwen3.6-27b") == ("openrouter", "qwen/qwen3.6-27b")
+
+
+def test_split_model_empty():
+    assert split_model("  ") == ("", "")
+
+
+def test_resolve_model_without_optin_never_probes(monkeypatch):
+    lister = _fake_lister("Qwen3.8-27B-MTP")
+    _patch_lister(monkeypatch, lister)
+    config = {"model": "openai/Qwen3.6-27B-MTP"}
+    assert resolve_model(config, api_base=BASE) == "openai/Qwen3.6-27B-MTP"
+    assert lister.calls == []
+
+
+def test_resolve_model_available_is_left_alone(monkeypatch):
+    _patch_lister(monkeypatch, _fake_lister("Qwen3.6-27B-MTP", "Qwen3.8-27B-MTP"))
+    config = {"model": "openai/Qwen3.6-27B-MTP", "model_fallback": True}
+    assert resolve_model(config, api_base=BASE) == "openai/Qwen3.6-27B-MTP"
+
+
+def test_resolve_model_falls_back_to_closest_name(monkeypatch, caplog):
+    _patch_lister(monkeypatch, _fake_lister("Qwen3.8-27B-MTP"))
+    config = {"model": "openai/Qwen3.6-27B-MTP", "model_fallback": True}
+    with caplog.at_level(logging.WARNING):
+        assert resolve_model(config, api_base=BASE) == "openai/Qwen3.8-27B-MTP"
+    assert "not available" in caplog.text
+
+
+def test_resolve_model_keeps_configured_when_no_close_match(monkeypatch, caplog):
+    _patch_lister(monkeypatch, _fake_lister("gemma-4-E2B", "nomic-embed-text-v1.5"))
+    config = {"model": "openai/Qwen3.6-27B-MTP", "model_fallback": True}
+    with caplog.at_level(logging.WARNING):
+        assert resolve_model(config, api_base=BASE) == "openai/Qwen3.6-27B-MTP"
+    assert "no close match" in caplog.text
+
+
+def test_resolve_model_unreachable_endpoint_keeps_configured(monkeypatch):
+    _patch_lister(monkeypatch, _fake_lister())  # [] == could not tell
+    config = {"model": "openai/Qwen3.6-27B-MTP", "model_fallback": True}
+    assert resolve_model(config, api_base=BASE) == "openai/Qwen3.6-27B-MTP"
+
+
+def test_resolve_model_skips_non_openai_provider(monkeypatch):
+    lister = _fake_lister("qwen/qwen3.8-27b")
+    _patch_lister(monkeypatch, lister)
+    config = {"model": "openrouter/qwen/qwen3.6-27b", "model_fallback": True}
+    assert resolve_model(config, api_base=BASE) == "openrouter/qwen/qwen3.6-27b"
+    assert lister.calls == []
+
+
+def test_resolve_model_without_api_base_keeps_configured(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_BASE", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    _patch_lister(monkeypatch, _fake_lister("Qwen3.8-27B-MTP"))
+    config = {"model": "openai/Qwen3.6-27B-MTP", "model_fallback": True}
+    assert resolve_model(config) == "openai/Qwen3.6-27B-MTP"
+
+
+def test_resolve_model_reads_api_base_from_env(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_BASE", BASE)
+    _patch_lister(monkeypatch, _fake_lister("Qwen3.8-27B-MTP"))
+    config = {"model": "openai/Qwen3.6-27B-MTP", "model_fallback": True}
+    assert resolve_model(config) == "openai/Qwen3.8-27B-MTP"
+
+
+def test_resolve_model_is_memoized_per_endpoint(monkeypatch):
+    lister = _fake_lister("Qwen3.8-27B-MTP")
+    _patch_lister(monkeypatch, lister)
+    config = {"model": "openai/Qwen3.6-27B-MTP", "model_fallback": True}
+    for _ in range(3):
+        assert resolve_model(config, api_base=BASE) == "openai/Qwen3.8-27B-MTP"
+    assert len(lister.calls) == 1
+
+
+def test_resolve_model_bare_configured_name_still_matches(monkeypatch):
+    _patch_lister(monkeypatch, _fake_lister("Qwen3.8-27B-MTP"))
+    config = {"model": "Qwen3.6-27B-MTP", "model_fallback": True}
+    assert resolve_model(config, api_base=BASE) == "openai/Qwen3.8-27B-MTP"

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import contextlib
+import difflib
+import json
 import logging
 import math
+import os
 import re
+import urllib.request
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -359,6 +363,131 @@ def get_timeout_extra_args() -> dict[str, float] | None:
     field), or ``None``. The LiteLLM provider forwards it to the completion call.
     """
     return {"timeout": _runtime_timeout} if _runtime_timeout is not None else None
+
+
+# --------------------------------------------------------------- model
+
+# How close a candidate name must be to the configured one before it is
+# treated as the same model under a new tag. difflib ratio, 0..1 — 0.6
+# accepts Qwen3.6-27B-MTP -> Qwen3.8-27B-MTP (a version bump) while
+# rejecting an unrelated model that merely happens to be resident.
+MODEL_FALLBACK_CUTOFF = 0.6
+
+# Seconds to wait for an endpoint's model list before giving up and using
+# the configured model unchanged. Deliberately short: this runs ahead of
+# real work, and being unable to check must never be slower than failing.
+MODEL_LIST_TIMEOUT = 5.0
+
+# Memoized per (configured model, api_base). Every CLI entry point
+# resolves a model, so without this a single command would re-list the
+# endpoint once per call site.
+_model_resolution_cache: dict[tuple[str, str], str] = {}
+
+
+def reset_model_resolution_cache() -> None:
+    """Clear memoized model resolutions (tests, long-lived processes)."""
+    _model_resolution_cache.clear()
+
+
+def split_model(model: str) -> tuple[str, str]:
+    """Split a LiteLLM ``provider/model`` string into ``(provider, name)``.
+
+    OpenAI models may omit the prefix, so a bare name is reported as
+    ``("openai", name)``. Only the first segment is treated as the
+    provider — ``openrouter/qwen/qwen3.6-27b`` keeps ``qwen/qwen3.6-27b``
+    as the model name.
+    """
+    model = model.strip()
+    if not model:
+        return "", ""
+    if "/" in model:
+        provider, _, name = model.partition("/")
+        return provider.lower(), name
+    return "openai", model
+
+
+def list_endpoint_models(api_base: str, *, timeout: float = MODEL_LIST_TIMEOUT) -> list[str]:
+    """Model ids an OpenAI-compatible endpoint advertises at ``/models``.
+
+    Returns ``[]`` on any failure — unreachable host, non-JSON body,
+    unexpected shape. Callers must read that as "cannot tell", never as
+    "the endpoint has no models", so an endpoint that cannot be probed
+    leaves the configured model untouched.
+    """
+    url = api_base.rstrip("/") + "/models"
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310
+            payload = json.load(resp)
+    except (OSError, ValueError) as exc:
+        logger.debug("config: could not list models at %s — %s", url, exc)
+        return []
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(data, list):
+        return []
+    return [m["id"] for m in data if isinstance(m, dict) and isinstance(m.get("id"), str)]
+
+
+def resolve_model(config: dict, *, api_base: str | None = None) -> str:
+    """The model to actually call for this KB.
+
+    Returns ``config["model"]`` unchanged unless the KB opts in with
+    ``model_fallback: true``. When it does, and the configured model is
+    absent from the endpoint's ``/models`` list, the closest name is used
+    instead and a warning is logged — this covers a server-side version
+    bump (Qwen3.6 -> Qwen3.8) that would otherwise break every KB pinned
+    to the old tag.
+
+    Deliberately conservative, because silently answering from the wrong
+    model is worse than failing:
+
+    * opt-in only, never on by default;
+    * OpenAI-compatible providers only — a hosted provider's catalog is
+      not the local server's, and its ids are not version-tagged names;
+    * a substitute must clear :data:`MODEL_FALLBACK_CUTOFF`, so an
+      unrelated model is never swapped in;
+    * every failure to probe leaves the configured model in place, so the
+      real call fails with the server's own error rather than silently
+      running against something else;
+    * name matching only — it never prefers whichever model happens to be
+      *loaded*, which on a single-instance server would mean answering a
+      corpus from whatever was resident.
+    """
+    configured = config.get("model", DEFAULT_CONFIG["model"])
+    if not config.get("model_fallback"):
+        return configured
+    provider, name = split_model(str(configured))
+    if provider != "openai" or not name:
+        return configured
+    if api_base is None:
+        api_base = os.environ.get("OPENAI_API_BASE") or os.environ.get("OPENAI_BASE_URL", "")
+    if not api_base:
+        return configured
+    cached = _model_resolution_cache.get((configured, api_base))
+    if cached is not None:
+        return cached
+    resolved = configured
+    available = list_endpoint_models(api_base)
+    if available and name not in available:
+        close = difflib.get_close_matches(name, available, n=1, cutoff=MODEL_FALLBACK_CUTOFF)
+        if close:
+            resolved = f"{provider}/{close[0]}"
+            logger.warning(
+                "config: model %r is not available at %s — falling back to %r. "
+                "Update the KB's config.yaml to make this permanent.",
+                name,
+                api_base,
+                close[0],
+            )
+        else:
+            logger.warning(
+                "config: model %r is not available at %s and no close match was "
+                "found among %d model(s) — using it anyway.",
+                name,
+                api_base,
+                len(available),
+            )
+    _model_resolution_cache[(configured, api_base)] = resolved
+    return resolved
 
 
 def load_config(config_path: Path) -> dict[str, Any]:

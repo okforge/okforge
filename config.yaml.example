@@ -2,6 +2,15 @@ model: gpt-5.4                   # LLM model (any LiteLLM-supported provider)
 language: en                     # Wiki output language
 pageindex_threshold: 20          # PDF pages threshold above which `add` rejects the file (pre-chunk it first)
 
+# Optional: tolerate a model that has gone missing from the endpoint.
+# Off by default. When true, and `model` is not in the endpoint's /v1/models
+# list, the closest matching name is used for this run and a warning is
+# logged — this covers a server-side version bump (Qwen3.6 -> Qwen3.8) that
+# would otherwise break the KB. Only for OpenAI-compatible endpoints; an
+# unrelated model is never substituted, and the config file is never
+# rewritten (update `model` yourself to make a switch permanent).
+# model_fallback: true
+
 # Optional: override the entity-type vocabulary used for entity pages.
 # Omit this key to use the default 7 types
 # (person, organization, place, product, work, event, other).
