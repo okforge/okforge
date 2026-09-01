@@ -366,11 +366,14 @@ class _StubHandler(BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802 (BaseHTTPRequestHandler's spelling)
         if self.delay:
             time.sleep(self.delay)
-        self.send_response(self.status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(self.body)))
-        self.end_headers()
-        self.wfile.write(self.body)
+        # The timeout test hangs up mid-response on purpose, so a dead
+        # socket here is expected, not a failure.
+        with contextlib.suppress(OSError):
+            self.send_response(self.status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(self.body)))
+            self.end_headers()
+            self.wfile.write(self.body)
 
     def log_message(self, *args):
         pass  # keep pytest output clean
