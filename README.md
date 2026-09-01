@@ -97,6 +97,15 @@ requests and start returning opaque `400` errors. Lower it in the KB's
 compile_concurrency: 1
 ```
 
+A KB pins the model it was built with, which breaks the day the server
+behind it is upgraded — `Qwen3.6-27B-MTP` is simply gone and every
+command fails. Setting `model_fallback: true` in the KB's `config.yaml`
+makes that survivable: before a run, okforge checks the endpoint's
+`/v1/models`, and if the pinned name is missing it uses the closest
+match (`Qwen3.6-27B-MTP` → `Qwen3.8-27B-MTP`) and logs a warning. It is
+off by default, never substitutes an unrelated model, and never rewrites
+your config — edit `model` yourself to make the switch permanent.
+
 ### Ingesting scans and non-text documents
 
 `okforge add` accepts Markdown, plain text, and PDF directly. Anything
