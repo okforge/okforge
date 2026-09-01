@@ -7,6 +7,7 @@ import logging
 import math
 import os
 import re
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, Iterator
@@ -415,8 +416,13 @@ def list_endpoint_models(api_base: str, *, timeout: float = MODEL_LIST_TIMEOUT) 
     leaves the configured model untouched.
     """
     url = api_base.rstrip("/") + "/models"
+    # api_base comes from a KB's .env, so restrict what urlopen will
+    # honour: without this it would happily open file:// or ftp://.
+    if urllib.parse.urlparse(url).scheme not in ("http", "https"):
+        logger.debug("config: refusing to list models at non-HTTP url %s", url)
+        return []
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
             payload = json.load(resp)
     except (OSError, ValueError) as exc:
         logger.debug("config: could not list models at %s — %s", url, exc)
