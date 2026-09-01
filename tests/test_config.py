@@ -379,9 +379,7 @@ class _StubHandler(BaseHTTPRequestHandler):
 @contextlib.contextmanager
 def _stub_endpoint(body=b'{"data": []}', status=200, delay=0.0):
     """Serve one canned /models response; yields the api_base to probe."""
-    handler = type(
-        "_Handler", (_StubHandler,), {"body": body, "status": status, "delay": delay}
-    )
+    handler = type("_Handler", (_StubHandler,), {"body": body, "status": status, "delay": delay})
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     server.daemon_threads = True
     # Small poll interval: shutdown() waits up to one interval, and the
