@@ -1,9 +1,15 @@
+import contextlib
+import json
 import logging
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from okforge.config import (
     DEFAULT_CONFIG,
     get_extra_headers,
     get_timeout,
+    list_endpoint_models,
     load_config,
     resolve_compile_concurrency,
     resolve_extra_headers,
@@ -340,3 +346,125 @@ def test_resolve_model_bare_configured_name_still_matches(monkeypatch):
     _patch_lister(monkeypatch, _fake_lister("Qwen3.8-27B-MTP"))
     config = {"model": "Qwen3.6-27B-MTP", "model_fallback": True}
     assert resolve_model(config, api_base=BASE) == "openai/Qwen3.8-27B-MTP"
+
+
+# ------------------------------------------------- list_endpoint_models
+#
+# Every test above stubs list_endpoint_models out, so these are the only
+# ones that exercise its real urllib path. They run it against a throwaway
+# HTTP server on localhost rather than a mock, because the branches that
+# matter most here are the failure ones — a non-200, a truncated body, a
+# host that never answers — and each has to degrade to "cannot tell" ([]),
+# never to "the endpoint has no models".
+
+
+class _StubHandler(BaseHTTPRequestHandler):
+    body = b'{"data": []}'
+    status = 200
+    delay = 0.0
+
+    def do_GET(self):  # noqa: N802 (BaseHTTPRequestHandler's spelling)
+        if self.delay:
+            time.sleep(self.delay)
+        self.send_response(self.status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(self.body)))
+        self.end_headers()
+        self.wfile.write(self.body)
+
+    def log_message(self, *args):
+        pass  # keep pytest output clean
+
+
+@contextlib.contextmanager
+def _stub_endpoint(body=b'{"data": []}', status=200, delay=0.0):
+    """Serve one canned /models response; yields the api_base to probe."""
+    handler = type(
+        "_Handler", (_StubHandler,), {"body": body, "status": status, "delay": delay}
+    )
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    server.daemon_threads = True
+    # Small poll interval: shutdown() waits up to one interval, and the
+    # default 0.5s would dominate the runtime of every test below.
+    thread = threading.Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True
+    )
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}/v1"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+MODELS_BODY = json.dumps(
+    {"object": "list", "data": [{"id": "Qwen3.8-27B-MTP"}, {"id": "gemma-4-E2B"}]}
+).encode()
+
+
+def test_list_endpoint_models_returns_ids():
+    with _stub_endpoint(MODELS_BODY) as base:
+        assert list_endpoint_models(base) == ["Qwen3.8-27B-MTP", "gemma-4-E2B"]
+
+
+def test_list_endpoint_models_tolerates_trailing_slash():
+    with _stub_endpoint(MODELS_BODY) as base:
+        assert list_endpoint_models(base + "/") == ["Qwen3.8-27B-MTP", "gemma-4-E2B"]
+
+
+def test_list_endpoint_models_skips_entries_without_a_string_id():
+    body = json.dumps(
+        {"data": [{"id": "good"}, {"object": "model"}, {"id": 7}, "not-a-dict"]}
+    ).encode()
+    with _stub_endpoint(body) as base:
+        assert list_endpoint_models(base) == ["good"]
+
+
+def test_list_endpoint_models_empty_list_is_reported_as_unknown():
+    with _stub_endpoint(b'{"data": []}') as base:
+        assert list_endpoint_models(base) == []
+
+
+def test_list_endpoint_models_on_error_status():
+    with _stub_endpoint(b"upstream exploded", status=500) as base:
+        assert list_endpoint_models(base) == []
+
+
+def test_list_endpoint_models_on_malformed_json():
+    with _stub_endpoint(b'{"data": [{"id": "trunc') as base:
+        assert list_endpoint_models(base) == []
+
+
+def test_list_endpoint_models_on_unexpected_shape():
+    for body in (b'{"data": "nope"}', b"[]", b'{"models": ["a"]}', b"null"):
+        with _stub_endpoint(body) as base:
+            assert list_endpoint_models(base) == []
+
+
+def test_list_endpoint_models_on_unreachable_host():
+    with _stub_endpoint() as base:
+        pass  # server is now closed, so the port refuses
+    assert list_endpoint_models(base) == []
+
+
+def test_list_endpoint_models_on_timeout():
+    with _stub_endpoint(MODELS_BODY, delay=5.0) as base:
+        assert list_endpoint_models(base, timeout=0.1) == []
+
+
+def test_list_endpoint_models_refuses_non_http_scheme(tmp_path):
+    # api_base is read from a KB's .env, so a file:// value must not turn
+    # a model probe into a local file read.
+    models = tmp_path / "models"
+    models.write_text(MODELS_BODY.decode(), encoding="utf-8")
+    assert list_endpoint_models(tmp_path.as_uri()) == []
+
+
+def test_resolve_model_falls_back_over_a_real_http_probe(monkeypatch):
+    """The whole path unmocked: config -> HTTP /models -> substitution."""
+    import okforge.config as cfg
+
+    cfg.reset_model_resolution_cache()
+    with _stub_endpoint(MODELS_BODY) as base:
+        config = {"model": "openai/Qwen3.6-27B-MTP", "model_fallback": True}
+        assert resolve_model(config, api_base=base) == "openai/Qwen3.8-27B-MTP"
