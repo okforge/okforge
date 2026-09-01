@@ -1,5 +1,13 @@
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+# Pinned exactly, like every other dependency here — the build backend was
+# the one surface still floating, and it broke the v0.11.0 release: the
+# release runner picked up hatchling 1.32.0, the first version to emit
+# `Metadata-Version: 2.5`, which the pinned pypa/gh-action-pypi-publish
+# rejects outright ("'2.5' is not a valid metadata version"). Its twine
+# predates that metadata revision, so the wheel failed `twine check`
+# before upload. 1.31.0 emits 2.4. Bump this only together with the
+# publish action in .github/workflows/publish.yml.
+requires = ["hatchling==1.31.0", "hatch-vcs==0.5.0"]
 build-backend = "hatchling.build"
 
 [project]

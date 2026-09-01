@@ -37,6 +37,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      # `build` only drives the build; the backend that actually produces
+      # the wheel is pinned in pyproject.toml's [build-system]. Keep it
+      # pinned: an unpinned hatchling floated to 1.32.0 and emitted
+      # `Metadata-Version: 2.5`, which the publish action below rejects
+      # before upload. Bump the two together, never one alone.
       - name: Install build tools
         run: pip install build
 
